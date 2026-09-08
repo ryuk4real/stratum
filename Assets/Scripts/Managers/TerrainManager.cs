@@ -16,7 +16,7 @@ public class TerrainManager : MonoBehaviour, IManager
     [Header("Material & Physics")]
     [SerializeField] private Material terrainMaterial;
     [SerializeField] private PhysicsMaterial terrainPhysicsMaterial;
-    [SerializeField] private int terrainLayer = 0;
+    [SerializeField] private int terrainLayer = 6;
 
     [Header("Chunk Grid Settings")]
     [SerializeField] private int chunkSize = 32;
@@ -118,6 +118,15 @@ public class TerrainManager : MonoBehaviour, IManager
     /// Initialize the manager, allocate GPU buffers and generate all chunks in memory
     public void Initialize()
     {
+        if (terrainLayer == 0)
+        {
+            int layerFromName = LayerMask.NameToLayer("Terrain");
+            if (layerFromName != -1)
+            {
+                terrainLayer = layerFromName;
+            }
+        }
+
         if (terrainMaterial != null)
         {
             float totalHeight = chunkDimensions.y * chunkSize * voxelSize;

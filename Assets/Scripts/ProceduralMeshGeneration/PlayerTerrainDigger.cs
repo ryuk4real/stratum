@@ -1,66 +1,100 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace ProceduralMeshGeneration
+// Demo component to test terrain digging
+public class PlayerTerrainDigger : MonoBehaviour
 {
-    // Demo component to test terrain digging
-    public class PlayerTerrainDigger : MonoBehaviour
+    [Header("Dig Parameters")]
+    [SerializeField, Min(0f)] private float digRadius = 2.5f;
+    [SerializeField, Min(0f)] private float digStrength = 2.0f;
+    [SerializeField, Min(0f)] private float maxReachDistance = 20.0f;
+
+    [Header("Targeting & Layers")]
+    [Tooltip("Only colliders on layers included in this mask can be dug.")]
+    [SerializeField] private LayerMask terrainLayerMask;
+    [Tooltip("Layers that block the digging raycast (Default is Everything, so walls and boundary colliders stop the ray).")]
+    [SerializeField] private LayerMask raycastBlockersMask = ~0;
+
+    [SerializeField] private Camera playerCamera;
+
+    private void OnValidate()
     {
-        [Header("Dig Parameters")]
-        [SerializeField, Min(0f)] private float digRadius = 2.5f;
-        [SerializeField, Min(0f)] private float digStrength = 2.0f;
-        [SerializeField, Min(0f)] private float maxReachDistance = 20.0f;
-        [SerializeField] private LayerMask terrainLayerMask = ~0;
-        [SerializeField] private Camera playerCamera;
+        if (digRadius < 0f) digRadius = 0f;
+        if (digStrength < 0f) digStrength = 0f;
+        if (maxReachDistance < 0f) maxReachDistance = 0f;
+    }
 
-        private void OnValidate()
+    private void Start()
+    {
+        if (playerCamera == null)
         {
-            if (digRadius < 0f) digRadius = 0f;
-            if (digStrength < 0f) digStrength = 0f;
-            if (maxReachDistance < 0f) maxReachDistance = 0f;
+            playerCamera = Camera.main;
         }
 
-        private void Start()
+        // Default to 'Terrain' layer if not set
+        if (terrainLayerMask.value == 0)
         {
-            if (playerCamera == null)
+            int terrainLayer = LayerMask.NameToLayer("Terrain");
+            if (terrainLayer != -1)
             {
-                playerCamera = Camera.main;
+                terrainLayerMask = 1 << terrainLayer;
             }
         }
+    }
 
-        private void Update()
+    private void Update()
+    {
+        if (playerCamera == null) return;
+
+        // Left click to dig
+        if (Mouse.current != null && Mouse.current.leftButton.isPressed)
         {
-            if (playerCamera == null) return;
-
-            // Left click to dig
-            if (Mouse.current != null && Mouse.current.leftButton.isPressed)
-            {
-                PerformDigAction();
-            }
+            PerformDigAction();
         }
+    }
 
-        private void PerformDigAction()
+    private void PerformDigAction()
+    {
+        Ray ray = Cursor.lockState == CursorLockMode.Locked
+            ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f))
+            : playerCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+
+        // Raycast against all blocking geometry (walls, colliders, boundaries, terrain)
+        if (Physics.Raycast(ray, out RaycastHit hit, maxReachDistance, raycastBlockersMask))
         {
-            Ray ray = Cursor.lockState == CursorLockMode.Locked
-                ? playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f))
-                : playerCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-
-            if (Physics.Raycast(ray, out RaycastHit hit, maxReachDistance, terrainLayerMask))
+            // Can dig only if the hit collider's layer is in terrainLayerMask
+            if (((1 << hit.collider.gameObject.layer) & terrainLayerMask.value) != 0)
             {
-                if (TerrainManager.Instance != null)
+                if (!IsDigNearNonDiggable(hit.point, digRadius))
                 {
                     TerrainManager.Instance.ModifyTerrain(hit.point, digRadius, digStrength);
+
                 }
             }
         }
+    }
 
-        // Method to dig at a specific point
-        public void DigAtPoint(Vector3 worldPoint, float radius, float strength)
+    private bool IsDigNearNonDiggable(Vector3 point, float radius)
+    {
+        Collider[] colliders = Physics.OverlapSphere(point, radius);
+        for (int i = 0; i < colliders.Length; i++)
         {
-            if (TerrainManager.Instance != null)
+            if (colliders[i].GetComponent<NonDiggableZone>() != null)
             {
-                TerrainManager.Instance.ModifyTerrain(worldPoint, radius, strength);
+                return true;
             }
+        }
+        return false;
+    }
+
+    // Method to dig at a specific point
+    public void DigAtPoint(Vector3 worldPoint, float radius, float strength)
+    {
+        if (IsDigNearNonDiggable(worldPoint, radius)) return;
+
+        if (TerrainManager.Instance != null)
+        {
+            TerrainManager.Instance.ModifyTerrain(worldPoint, radius, strength);
         }
     }
 }

@@ -272,6 +272,9 @@ MonoBehaviour:
   maxReachDistance: 20
   terrainLayerMask:
     serializedVersion: 2
+    m_Bits: 64
+  raycastBlockersMask:
+    serializedVersion: 2
     m_Bits: 4294967295
   playerCamera: {fileID: 7731091219998889540}
 --- !u!1 &8381780704962062293
