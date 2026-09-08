@@ -1,0 +1,317 @@
+#pragma kernel MarchingCubes
+#pragma kernel GenerateDensity
+#pragma kernel ModifyDensity
+
+struct Vertex
+{
+    float3 position;
+    float3 normal;
+};
+
+struct Triangle
+{
+    Vertex a;
+    Vertex b;
+    Vertex c;
+};
+
+// Buffers
+RWStructuredBuffer<float> _DensityBuffer;
+RWStructuredBuffer<Triangle> _Triangles;
+RWStructuredBuffer<int> _TriangleCounter;
+
+StructuredBuffer<int> _TriTable;
+StructuredBuffer<int> _EdgeTable;
+
+// Uniform parameters
+int _NumPointsPerAxis;      // e.g. chunkSize + 1
+int _MaxTriangles;          // Safety limit
+float _VoxelSize;           // World size of single voxel cell
+float3 _ChunkWorldOffset;   // World position offset for the chunk
+float _IsoLevel;            // Surface threshold (e.g. 0.0)
+
+// Cavern generation parameters
+float3 _CavernCenter;          // World position center of starting cavern
+float3 _CavernSize;            // Extents (width, height, depth) of starting cavern
+float _NoiseFrequency;         // Frequency of 3D noise on cavern walls
+float _TerrainHeightVariation; // Wall roughness amplitude
+
+// Modification parameters
+float3 _BrushCenter;        // Center of dig sphere in local/world coordinates
+float _BrushRadius;         // Radius of brush
+float _BrushDelta;          // Amount to add for digging
+
+// Corner offsets for a voxel cube
+static const int3 cornerOffsets[8] = {
+    int3(0, 0, 0), // 0
+    int3(1, 0, 0), // 1
+    int3(1, 0, 1), // 2
+    int3(0, 0, 1), // 3
+    int3(0, 1, 0), // 4
+    int3(1, 1, 0), // 5
+    int3(1, 1, 1), // 6
+    int3(0, 1, 1)  // 7
+};
+
+int IndexFromCoord(int x, int y, int z, int numPoints)
+{
+    return x + y * numPoints + z * numPoints * numPoints;
+}
+
+// 3D Noise functions
+float hash13(float3 p3)
+{
+    p3 = frac(p3 * 0.1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+float noise3D(float3 p)
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    return lerp(
+        lerp(lerp(hash13(i + float3(0,0,0)), hash13(i + float3(1,0,0)), f.x),
+             lerp(hash13(i + float3(0,1,0)), hash13(i + float3(1,1,0)), f.x), f.y),
+        lerp(lerp(hash13(i + float3(0,0,1)), hash13(i + float3(1,0,1)), f.x),
+             lerp(hash13(i + float3(0,1,1)), hash13(i + float3(1,1,1)), f.x), f.y),
+        f.z
+    );
+}
+
+// Fractal Brownian Motion (fbm) in 3D for organic rock roughness
+float fbm3D(float3 p)
+{
+    float value = 0.0;
+    float amplitude = 0.5;
+    [unroll]
+    for (int i = 0; i < 3; i++)
+    {
+        value += amplitude * noise3D(p);
+        p *= 2.0;
+        amplitude *= 0.5;
+    }
+    return value;
+}
+
+float SampleDensity(float3 worldPos)
+{
+    // Distance to rounded box of cavern
+    float3 halfSize = max(_CavernSize * 0.5, float3(0.5, 0.5, 0.5));
+    float3 q = abs(worldPos - _CavernCenter) - halfSize;
+    float boxDist = length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+
+    // 3D noise displacement for natural rough rock walls, floor, and ceiling
+    float wallNoise = (fbm3D(worldPos * _NoiseFrequency) - 0.5) * 2.0 * _TerrainHeightVariation;
+
+    return boxDist + wallNoise;
+}
+
+[numthreads(4, 4, 4)]
+void GenerateDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_NumPointsPerAxis || id.y >= (uint)_NumPointsPerAxis || id.z >= (uint)_NumPointsPerAxis)
+        return;
+
+    float3 worldPos = _ChunkWorldOffset + float3(id.x, id.y, id.z) * _VoxelSize;
+    float density = SampleDensity(worldPos);
+
+    int index = IndexFromCoord(id.x, id.y, id.z, _NumPointsPerAxis);
+    _DensityBuffer[index] = density;
+}
+
+[numthreads(4, 4, 4)]
+void ModifyDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_NumPointsPerAxis || id.y >= (uint)_NumPointsPerAxis || id.z >= (uint)_NumPointsPerAxis)
+        return;
+
+    float3 worldPos = _ChunkWorldOffset + float3(id.x, id.y, id.z) * _VoxelSize;
+    float dist = distance(worldPos, _BrushCenter);
+
+    if (dist < _BrushRadius)
+    {
+        float t = 1.0 - (dist / _BrushRadius);
+        float falloff = t * t * (3.0 - 2.0 * t);
+        
+        int index = IndexFromCoord(id.x, id.y, id.z, _NumPointsPerAxis);
+        _DensityBuffer[index] += _BrushDelta * falloff;
+    }
+}
+
+float3 CalculateNormal(int3 c, float3 worldPos)
+{
+    if (c.x > 0 && c.x < _NumPointsPerAxis - 1 &&
+        c.y > 0 && c.y < _NumPointsPerAxis - 1 &&
+        c.z > 0 && c.z < _NumPointsPerAxis - 1)
+    {
+        float dx = _DensityBuffer[IndexFromCoord(c.x + 1, c.y, c.z, _NumPointsPerAxis)] - 
+                   _DensityBuffer[IndexFromCoord(c.x - 1, c.y, c.z, _NumPointsPerAxis)];
+        float dy = _DensityBuffer[IndexFromCoord(c.x, c.y + 1, c.z, _NumPointsPerAxis)] - 
+                   _DensityBuffer[IndexFromCoord(c.x, c.y - 1, c.z, _NumPointsPerAxis)];
+        float dz = _DensityBuffer[IndexFromCoord(c.x, c.y, c.z + 1, _NumPointsPerAxis)] - 
+                   _DensityBuffer[IndexFromCoord(c.x, c.y, c.z - 1, _NumPointsPerAxis)];
+        float3 grad = float3(dx, dy, dz);
+        float len = length(grad);
+        if (len > 0.0001)
+        {
+            return -grad / len;
+        }
+    }
+
+    float h = max(0.001, _VoxelSize * 0.1);
+    float dx = SampleDensity(worldPos + float3(h, 0, 0)) - SampleDensity(worldPos - float3(h, 0, 0));
+    float dy = SampleDensity(worldPos + float3(0, h, 0)) - SampleDensity(worldPos - float3(0, h, 0));
+    float dz = SampleDensity(worldPos + float3(0, 0, h)) - SampleDensity(worldPos - float3(0, 0, h));
+
+    float3 grad = float3(dx, dy, dz);
+    float len = length(grad);
+    if (len > 0.0001)
+    {
+        return -grad / len;
+    }
+    return float3(0, 1, 0);
+}
+
+// Function for canonical ordering of edge endpoints.
+// Solves the problem of micro-holes/cracks in the isosurface due to floating-point inaccuracies.
+// Reference: Paul Bourke (https://paulbourke.net/geometry/polygonise/interp.c)
+bool IsLess(float3 a, float3 b)
+{
+    if (a.x != b.x) return a.x < b.x;
+    if (a.y != b.y) return a.y < b.y;
+    return a.z < b.z;
+}
+
+// This function interpolates the vertex position and normal between two points
+Vertex VertexInterp(float isolevel, float3 p1, float3 p2, float valp1, float valp2, float3 norm1, float3 norm2)
+{
+    // Canonical ordering of edge endpoints
+    if (IsLess(p2, p1))
+    {
+        float3 tempP = p1; p1 = p2; p2 = tempP;
+        float tempVal = valp1; valp1 = valp2; valp2 = tempVal;
+        float3 tempNorm = norm1; norm1 = norm2; norm2 = tempNorm;
+    }
+
+    Vertex v = (Vertex)0;
+    if (abs(valp1 - valp2) > 0.00001)
+    {
+        float mu = (isolevel - valp1) / (valp2 - valp1);
+        v.position = p1 + mu * (p2 - p1);
+        v.normal = normalize(lerp(norm1, norm2, mu));
+    }
+    else
+    {
+        v.position = p1;
+        v.normal = norm1;
+    }
+
+    return v;
+}
+
+[numthreads(4, 4, 4)]
+void MarchingCubes(uint3 id : SV_DispatchThreadID)
+{
+    int numVoxels = _NumPointsPerAxis - 1;
+    if (id.x >= (uint)numVoxels || id.y >= (uint)numVoxels || id.z >= (uint)numVoxels)
+        return;
+
+    int3 cellCorner = int3(id.x, id.y, id.z);
+
+    // Read 8 corner density values
+    float cornerValues[8];
+
+    [unroll]
+    for (int k = 0; k < 8; k++)
+    {
+        int3 c = cellCorner + cornerOffsets[k];
+        cornerValues[k] = _DensityBuffer[IndexFromCoord(c.x, c.y, c.z, _NumPointsPerAxis)];
+    }
+
+    // Determine cube index
+    int cubeindex = 0;
+    if (cornerValues[0] > _IsoLevel) cubeindex |= 1;
+    if (cornerValues[1] > _IsoLevel) cubeindex |= 2;
+    if (cornerValues[2] > _IsoLevel) cubeindex |= 4;
+    if (cornerValues[3] > _IsoLevel) cubeindex |= 8;
+    if (cornerValues[4] > _IsoLevel) cubeindex |= 16;
+    if (cornerValues[5] > _IsoLevel) cubeindex |= 32;
+    if (cornerValues[6] > _IsoLevel) cubeindex |= 64;
+    if (cornerValues[7] > _IsoLevel) cubeindex |= 128;
+
+    int edgeFlags = _EdgeTable[cubeindex];
+    if (edgeFlags == 0)
+        return;
+
+    // Calculate corner positions and normals only if cube intersects surface
+    float3 cornerPositions[8];
+    float3 cornerNormals[8];
+
+    [unroll]
+    for (int j = 0; j < 8; j++)
+    {
+        int3 c = cellCorner + cornerOffsets[j];
+        cornerPositions[j] = float3(c.x, c.y, c.z) * _VoxelSize;
+        float3 cornerWorldPos = _ChunkWorldOffset + cornerPositions[j];
+        cornerNormals[j] = CalculateNormal(c, cornerWorldPos);
+    }
+
+    // Find vertices on intersected edges
+    Vertex vertlist[12];
+    [unroll]
+    for (int vIdx = 0; vIdx < 12; vIdx++)
+    {
+        vertlist[vIdx] = (Vertex)0;
+    }
+
+    if (edgeFlags & 1)
+        vertlist[0] = VertexInterp(_IsoLevel, cornerPositions[0], cornerPositions[1], cornerValues[0], cornerValues[1], cornerNormals[0], cornerNormals[1]);
+    if (edgeFlags & 2)
+        vertlist[1] = VertexInterp(_IsoLevel, cornerPositions[1], cornerPositions[2], cornerValues[1], cornerValues[2], cornerNormals[1], cornerNormals[2]);
+    if (edgeFlags & 4)
+        vertlist[2] = VertexInterp(_IsoLevel, cornerPositions[2], cornerPositions[3], cornerValues[2], cornerValues[3], cornerNormals[2], cornerNormals[3]);
+    if (edgeFlags & 8)
+        vertlist[3] = VertexInterp(_IsoLevel, cornerPositions[3], cornerPositions[0], cornerValues[3], cornerValues[0], cornerNormals[3], cornerNormals[0]);
+    if (edgeFlags & 16)
+        vertlist[4] = VertexInterp(_IsoLevel, cornerPositions[4], cornerPositions[5], cornerValues[4], cornerValues[5], cornerNormals[4], cornerNormals[5]);
+    if (edgeFlags & 32)
+        vertlist[5] = VertexInterp(_IsoLevel, cornerPositions[5], cornerPositions[6], cornerValues[5], cornerValues[6], cornerNormals[5], cornerNormals[6]);
+    if (edgeFlags & 64)
+        vertlist[6] = VertexInterp(_IsoLevel, cornerPositions[6], cornerPositions[7], cornerValues[6], cornerValues[7], cornerNormals[6], cornerNormals[7]);
+    if (edgeFlags & 128)
+        vertlist[7] = VertexInterp(_IsoLevel, cornerPositions[7], cornerPositions[4], cornerValues[7], cornerValues[4], cornerNormals[7], cornerNormals[4]);
+    if (edgeFlags & 256)
+        vertlist[8] = VertexInterp(_IsoLevel, cornerPositions[0], cornerPositions[4], cornerValues[0], cornerValues[4], cornerNormals[0], cornerNormals[4]);
+    if (edgeFlags & 512)
+        vertlist[9] = VertexInterp(_IsoLevel, cornerPositions[1], cornerPositions[5], cornerValues[1], cornerValues[5], cornerNormals[1], cornerNormals[5]);
+    if (edgeFlags & 1024)
+        vertlist[10] = VertexInterp(_IsoLevel, cornerPositions[2], cornerPositions[6], cornerValues[2], cornerValues[6], cornerNormals[2], cornerNormals[6]);
+    if (edgeFlags & 2048)
+        vertlist[11] = VertexInterp(_IsoLevel, cornerPositions[3], cornerPositions[7], cornerValues[3], cornerValues[7], cornerNormals[3], cornerNormals[7]);
+
+    // Construct triangles
+    int triTableOffset = cubeindex * 16;
+
+    [unroll]
+    for (int i = 0; i < 15; i += 3)
+    {
+        int idx0 = _TriTable[triTableOffset + i];
+        if (idx0 == -1)
+            break;
+
+        int triIndex;
+        InterlockedAdd(_TriangleCounter[0], 1, triIndex);
+
+        if (triIndex < _MaxTriangles)
+        {
+            Triangle tri;
+            tri.a = vertlist[idx0];
+            tri.b = vertlist[_TriTable[triTableOffset + i + 1]];
+            tri.c = vertlist[_TriTable[triTableOffset + i + 2]];
+            _Triangles[triIndex] = tri;
+        }
+    }
+}

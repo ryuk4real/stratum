@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0783a72d13d74d941814f461b7118a2a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 33718
+  packageName: Basic Pickaxe
+  packageVersion: 3.0
+  assetPath: Assets/REAL_DEDICATED/BasicPickaxe/Materials/M_BasicPickaxe.mat
+  uploadId: 785528

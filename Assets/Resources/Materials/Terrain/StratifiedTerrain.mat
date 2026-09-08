@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: StratifiedTerrain
+  m_Shader: {fileID: 4800000, guid: d7a18f23c91e4854b73e2a9b1c54e9f0, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap:
+    RenderType: Opaque
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _InteriorNormal:
+        m_Texture: {fileID: 2800000, guid: 830c224dd38c0684a9ceed239a35722a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _InteriorTex:
+        m_Texture: {fileID: 2800000, guid: 48e7b7fead1e7c94298c74f5dd80c7e3, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _DepthDarkening: 0.35
+    - _DepthGradientDistance: 25
+    - _InteriorMetallic: 0
+    - _InteriorNormalScale: 1
+    - _InteriorSmoothness: 0.15
+    - _InteriorTiling: 0.25
+    - _MicroStrataStrength: 0.05
+    - _NoiseFrequency: 0.03
+    - _StrataFrequency: 0.08
+    - _StrataHardness: 0.55
+    - _StrataIntensity: 1.15
+    - _StrataWarpFrequency: 0.08
+    - _StrataWarpStrength: 0.8
+    - _SurfaceBaseHeight: 320
+    - _TerrainHeightVariation: 2
+    - _TriplanarSharpness: 4
+    m_Colors:
+    - _DeepUndergroundColor: {r: 0.45, g: 0.43, b: 0.4, a: 1}
+    - _InteriorColor: {r: 1, g: 1, b: 1, a: 1}
+    - _StrataColor1: {r: 0.74, g: 0.62, b: 0.48, a: 1}
+    - _StrataColor2: {r: 0.72, g: 0.44, b: 0.32, a: 1}
+    - _StrataColor3: {r: 0.38, g: 0.35, b: 0.34, a: 1}
+    - _StrataColor4: {r: 0.8, g: 0.76, b: 0.65, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

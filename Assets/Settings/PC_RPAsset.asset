@@ -66,7 +66,7 @@ MonoBehaviour:
   m_SoftShadowsSupported: 1
   m_ConservativeEnclosingSphere: 1
   m_NumIterationsEnclosingSphere: 64
-  m_SoftShadowQuality: 3
+  m_SoftShadowQuality: 1
   m_AdditionalLightsCookieResolution: 2048
   m_AdditionalLightsCookieFormat: 3
   m_UseSRPBatcher: 1
