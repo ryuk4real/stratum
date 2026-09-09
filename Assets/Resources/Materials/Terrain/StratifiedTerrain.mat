@@ -34,6 +34,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Cull: 0
     - _DepthDarkening: 0.35
     - _DepthGradientDistance: 25
     - _InteriorMetallic: 0

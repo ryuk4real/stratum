@@ -33,6 +33,9 @@ Shader "Stratum/ProceduralTerrainTriplanar"
         _DepthDarkening ("Deep Underground Darkening", Range(0, 1)) = 0.35
         _DeepUndergroundColor ("Deep Bedrock Tint", Color) = (0.45, 0.43, 0.40, 1)
         _TriplanarSharpness ("Triplanar Blend Sharpness", Range(1, 16)) = 4.0
+
+        [Header(Rendering Settings)]
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull Mode (0=Off, 1=Front, 2=Back)", Float) = 0
     }
 
     SubShader
@@ -54,7 +57,7 @@ Shader "Stratum/ProceduralTerrainTriplanar"
             Tags { "LightMode" = "UniversalForward" }
 
             ZWrite On
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0
@@ -332,7 +335,7 @@ Shader "Stratum/ProceduralTerrainTriplanar"
             ZWrite On
             ZTest LEqual
             ColorMask 0
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0
@@ -394,7 +397,7 @@ Shader "Stratum/ProceduralTerrainTriplanar"
 
             ZWrite On
             ColorMask R
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0
@@ -443,7 +446,7 @@ Shader "Stratum/ProceduralTerrainTriplanar"
             Tags { "LightMode" = "DepthNormals" }
 
             ZWrite On
-            Cull Back
+            Cull [_Cull]
 
             HLSLPROGRAM
             #pragma target 3.0
