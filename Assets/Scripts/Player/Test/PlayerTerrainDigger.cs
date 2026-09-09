@@ -31,7 +31,7 @@ public class PlayerTerrainDigger : MonoBehaviour
             playerCamera = Camera.main;
         }
 
-        // Default to 'Terrain' layer if not set
+        // Default to Terrain layer if not set
         if (terrainLayerMask.value == 0)
         {
             int terrainLayer = LayerMask.NameToLayer("Terrain");
@@ -91,10 +91,6 @@ public class PlayerTerrainDigger : MonoBehaviour
     public void DigAtPoint(Vector3 worldPoint, float radius, float strength)
     {
         if (IsDigNearNonDiggable(worldPoint, radius)) return;
-
-        if (TerrainManager.Instance != null)
-        {
-            TerrainManager.Instance.ModifyTerrain(worldPoint, radius, strength);
-        }
+        TerrainManager.Instance.ModifyTerrain(worldPoint, radius, strength);
     }
 }
