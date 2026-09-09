@@ -19,8 +19,8 @@ public class TerrainManager : MonoBehaviour, IManager
     [SerializeField] private int terrainLayer = 6;
 
     [Header("Chunk Grid Settings")]
-    [SerializeField] private int chunkSize = 32;
-    [SerializeField] private float voxelSize = 1.0f;
+    [SerializeField] private int chunkSize = 40;
+    [SerializeField] private float voxelSize = 0.8f;
     [SerializeField] private Vector3Int chunkDimensions = new Vector3Int(2, 10, 2);
 
     [Header("Cavern & Room Settings")]
