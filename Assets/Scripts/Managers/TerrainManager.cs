@@ -10,6 +10,8 @@ public class TerrainManager : MonoBehaviour, IManager
 {
     public static TerrainManager Instance { get; private set; }
 
+    public bool IsInitialized => isInitialized;
+
     [Header("Compute Shader")]
     [SerializeField] private ComputeShader marchingCubesShader;
 
@@ -17,6 +19,7 @@ public class TerrainManager : MonoBehaviour, IManager
     [SerializeField] private Material terrainMaterial;
     [SerializeField] private PhysicsMaterial terrainPhysicsMaterial;
     [SerializeField] private int terrainLayer = 6;
+    [SerializeField] private LayerMask mineralLayerMask;
 
     [Header("Chunk Grid Settings")]
     [SerializeField] private int chunkSize = 40;
@@ -36,6 +39,8 @@ public class TerrainManager : MonoBehaviour, IManager
     [Header("Colors")]
     private Color cavernGizmoColor = Color.yellow;
     private Color terrainGizmoColor = Color.white;
+
+    private const float RADIUS_MULTIPLIER = 3.5f;
 
     public bool CenterCavernInTerrainSetting
     {
@@ -127,6 +132,15 @@ public class TerrainManager : MonoBehaviour, IManager
             }
         }
 
+        if (mineralLayerMask.value == 0)
+        {
+            int minLayer = LayerMask.NameToLayer("Mineral");
+            if (minLayer != -1)
+            {
+                mineralLayerMask = 1 << minLayer;
+            }
+        }
+
         if (terrainMaterial != null)
         {
             float totalHeight = chunkDimensions.y * chunkSize * voxelSize;
@@ -167,7 +181,7 @@ public class TerrainManager : MonoBehaviour, IManager
         Debug.Log($"[TerrainManager] Successfully initialized. Generated {chunks.Count} chunks.");
     }
 
-    /// Generates the initial grid of chunks and computes their density and continuous mesh
+    // Generates the initial grid of chunks and computes their density and continuous mesh
     private void GenerateAllChunks()
     {
         // Create chunks in a grid
@@ -237,15 +251,6 @@ public class TerrainManager : MonoBehaviour, IManager
         return chunk;
     }
 
-    /// Enables or disables the collisions on a specific chunk
-    public void SetChunkColliderEnabled(Vector3Int coord, bool isColliderEnabled)
-    {
-        if (chunks.TryGetValue(coord, out TerrainChunk chunk))
-        {
-            chunk.SetColliderEnabled(isColliderEnabled);
-        }
-    }
-
     // Modifies the terrain at a given world position
     public void ModifyTerrain(Vector3 worldPosition, float radius, float strength)
     {
@@ -287,14 +292,20 @@ public class TerrainManager : MonoBehaviour, IManager
                 terrainHeightVariation
             );
         }
-    }
 
-    // Set the visibility of a single chunk given its coordinate index
-    public void SetChunkVisibility(Vector3Int coord, bool visible)
-    {
-        if (chunks.TryGetValue(coord, out TerrainChunk chunk))
+        if (affectedChunks.Count > 0)
         {
-            chunk.SetVisibility(visible);
+            // Notify any minerals overlapping the excavation area
+            float checkRadius = radius * RADIUS_MULTIPLIER;
+            Collider[] hitMinerals = Physics.OverlapSphere(worldPosition, checkRadius, mineralLayerMask);
+            for (int i = 0; i < hitMinerals.Length; i++)
+            {
+                if (hitMinerals[i].TryGetComponent<MineralBehaviour>(out var mineral))
+                {
+                    mineral.CheckExposure();
+                }
+            }
+
         }
     }
 
