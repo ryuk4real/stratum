@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Sulfur
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 14
+  mineralName: Sulfur
+  description: "Sulfur is a chemical element, which at room temperature it is a yellow crystalline solid. Even though it is insoluble in water, it is one of the most versatile elements at forming compounds.\n\nSulfur is abundant and occurs throughout the Universe, but it is rarely found in a pure, uncombined form at Earth\u2019s surface. As an element, sulfur is an important constituent of sulfate and sulfide minerals. It occurs in the dissolved ions of many waters. It is an important constituent of many atmospheric, subsurface, and dissolved gases. It is an essential element in all living things and is in the organic molecules of all fossil fuels.\n\nAs a mineral, sulfur is a bright yellow crystalline material. It forms near volcanic vents and fumaroles, where it sublimates from a stream of hot gases. Small amounts of native sulfur also form during the weathering of sulfate and sulfide minerals."
+  rarity: 6
+  maxVeinAmount: 5
+  minVeinAmount: 2
+  scaleRange: {x: 0.7, y: 1.3}
+  mesh: {fileID: -2432090755550338912, guid: ada8916d2a99633d4b7ee28cb9fde504, type: 3}
+  material: {fileID: 2100000, guid: 76698a1801b05ce2e3d5f0a4c29c6f46, type: 2}

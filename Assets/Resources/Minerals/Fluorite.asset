@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Fluorite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 8
+  mineralName: Fluorite
+  description: "Fluorite is an important industrial mineral composed of calcium and fluorine. It is used in a wide variety of chemical, metallurgical, and ceramic processes. Specimens with exceptional diaphaneity and color are cut into gems or used to make ornamental objects.\n\nFluorite is deposited in veins by hydrothermal processes. In these rocks it often occurs as a gangue mineral associated with metallic ores. Fluorite is also found in the fractures and cavities of some limestones and dolomites. It is a very common rock-forming mineral found in many parts of the world. In the mining industry, fluorite is often called \u201cfluorspar.\u201d"
+  rarity: 5
+  maxVeinAmount: 7
+  minVeinAmount: 3
+  scaleRange: {x: 0.8, y: 1.5}
+  mesh: {fileID: -2432090755550338912, guid: 8339b165645673434f3c804428cfebb4, type: 3}
+  material: {fileID: 2100000, guid: a7126b36f4d15bc4a8cabcaa156dd641, type: 2}

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Limonite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 9
+  mineralName: Limonite
+  description: "Limonite is a mineraloid composed mainly of hydrous iron oxides that are often found in intimate associations with iron minerals.\n\nLimonite has been used as a low-quality iron ore for thousands of years. Commercial mining of limonite as a source of iron is no longer done in areas where reasonable deposits of hematite and magnetite are present or readily imported. Limonite deposits are usually too small and too impure for use in modern metallurgy."
+  rarity: 3
+  maxVeinAmount: 10
+  minVeinAmount: 4
+  scaleRange: {x: 0.9, y: 1.6}
+  mesh: {fileID: -2432090755550338912, guid: 75b9d5a355adac5a2e45fd18ea8e8ce8, type: 3}
+  material: {fileID: 2100000, guid: b93088c4b2dbe925afd58b21fdce2edc, type: 2}

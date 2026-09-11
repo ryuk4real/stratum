@@ -376,6 +376,9 @@ public class MineralBehaviour : MonoBehaviour
         float scale = Mathf.Max(transform.lossyScale.x, Mathf.Max(transform.lossyScale.y, transform.lossyScale.z));
         float effectiveRayDistance = raycastDistance * scale;
 
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null || meshFilter.sharedMesh == null) return;
+
         Vector3 localCenter = meshFilter.sharedMesh.bounds.center;
         Vector3 worldCenter = transform.TransformPoint(localCenter);
 

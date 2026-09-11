@@ -32,8 +32,8 @@ Transform:
   m_GameObject: {fileID: 913058803302260206}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 149.989, y: 272.8614, z: 161.245}
+  m_LocalScale: {x: 4, y: 4, z: 4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -50,18 +50,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb7ac18d4d6f3795590b4607c4c0b9eb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MineralBehaviour
-  mineralData: {fileID: 11400000, guid: dc1edb57b8aa46b5bb7df04d1fa0bab4, type: 2}
+  mineralData: {fileID: 0}
   exposureThreshold: 0.75
   fullExcavationThreshold: 0.95
   raycastCount: 20
   raycastDistance: 0.08
-  extractionSound: {fileID: 0}
-  extractionParticles: {fileID: 0}
   enableHaptics: 1
   hapticStrength: 0.7
   hapticDuration: 0.2
   state: 0
-  exposureRatio: 0.621
+  exposureRatio: 0.8
   isAnchoredToTerrain: 1
   drawGizmos: 1
 --- !u!33 &316894662129765323
@@ -71,7 +69,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 913058803302260206}
-  m_Mesh: {fileID: -2432090755550338912, guid: 99e829dc7a9b4009bb399e5251410f92, type: 3}
+  m_Mesh: {fileID: 0}
 --- !u!23 &3770271727414686104
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -97,7 +95,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b4c730e20608468b8e05cb6b7b252065, type: 2}
+  - {fileID: 0}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -144,7 +142,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 2
@@ -169,7 +167,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 1
   m_CookingOptions: 30
-  m_Mesh: {fileID: -2432090755550338912, guid: 99e829dc7a9b4009bb399e5251410f92, type: 3}
+  m_Mesh: {fileID: 0}
 --- !u!114 &7288436182378624244
 MonoBehaviour:
   m_ObjectHideFlags: 0

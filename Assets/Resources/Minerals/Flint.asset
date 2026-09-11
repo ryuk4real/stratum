@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Flint
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 7
+  mineralName: Flint
+  description: "Flint is an erectile, sedimentary cryptocrystalline form of the mineral quartz. Flint was widely used historically to make stone tools and start fires.\n\nIt occurs chiefly as nodules and masses in sedimentary rocks, such as chalks and limestones. Inside the nodule, flint is usually dark grey, black, green, white or brown in colour, and often has a glassy or waxy appearance. A thin layer on the outside of the nodules is usually different in colour, typically white and rough in texture. The nodules can often be found along streams and beaches.\n\nFlint breaks and chips into sharp-edged pieces, making it useful for knife blades and other cutting tools. The use of flint to make stone tools dates back millions of years, and flint\u2019s extreme durability has made it possible to accurately date its use over this time. Flint is one of the primary materials used to define the Stone Age."
+  rarity: 3
+  maxVeinAmount: 8
+  minVeinAmount: 3
+  scaleRange: {x: 0.6, y: 1.1}
+  mesh: {fileID: -2432090755550338912, guid: 140eaa2e79b3d85663376e09d0c4014c, type: 3}
+  material: {fileID: 2100000, guid: 0c9fc25baf09f4f46996da5466f9db31, type: 2}

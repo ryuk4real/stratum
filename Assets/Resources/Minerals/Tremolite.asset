@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Tremolite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 16
+  mineralName: Tremolite
+  description: "Tremolite is a member of the amphibole group of silicate minerals. Tremolite forms by metamorphism of sediments rich in dolomite and quartz. Tremolite forms a series with actinolite and ferro-actinolite. Pure magnesium tremolite is creamy white, but the color grades to dark green with increasing iron content. It has a hardness on Mohs scale of 5 to 6. Nephrite, one of the two minerals of the gemstone jade, is a green variety of tremolite.\n\nThe fibrous form of tremolite is one of the six recognised types of asbestos. This material is toxic, and inhaling the fibers can lead to asbestosis, lung cancer and both pleural and peritoneal mesothelioma. Fibrous tremolite is sometimes found as a contaminant in vermiculite, chrysotile (itself a type of asbestos) and talc."
+  rarity: 6
+  maxVeinAmount: 5
+  minVeinAmount: 2
+  scaleRange: {x: 0.7, y: 1.4}
+  mesh: {fileID: -2432090755550338912, guid: b85d5284c21726d6cb0cb4accd50c794, type: 3}
+  material: {fileID: 2100000, guid: 59ee32ec6fb4c11cf9d74e88f11a5d88, type: 2}

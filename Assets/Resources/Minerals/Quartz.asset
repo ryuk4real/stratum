@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Quartz
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 13
+  mineralName: Quartz
+  description: "Quartz is the most abundant and widely distributed mineral found at Earth\u2019s surface. It is present and plentiful in all parts of the world. It forms at all temperatures. It is abundant in igneous, metamorphic, and sedimentary rocks. It is highly resistant to both mechanical and chemical weathering. This durability makes it the dominant mineral of mountaintops and the primary constituent of beach, river, and desert sand. Quartz is ubiquitous, plentiful and durable. Minable deposits are found throughout the world.\n\nQuartz is a chemical compound consisting of one part silicon and two parts oxygen.Its unique properties make it one of the most useful natural substances."
+  rarity: 1
+  maxVeinAmount: 20
+  minVeinAmount: 8
+  scaleRange: {x: 0.9, y: 1.6}
+  mesh: {fileID: -2432090755550338912, guid: 4c1abc947682101075e71237cd1d5a91, type: 3}
+  material: {fileID: 2100000, guid: 5de3c764ede7ab467a25bb87c1690741, type: 2}

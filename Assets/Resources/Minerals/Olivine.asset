@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Olivine
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 11
+  mineralName: Olivine
+  description: "Olivine is the name of a group of rock-forming minerals that are typically found in mafic and ultramafic igneous rocks such as basalt, gabbro, dunite, diabase, and peridotite, and are usually green in color. Many people are familiar with olivine because it is the mineral of a very popular green gemstone known as peridot.\n\nMost olivine found at Earth\u2019s surface is in dark-colored igneous rocks. Olivine has a very high crystallization temperature compared to other minerals. That makes it one of the first minerals to crystallize from a magma. During the slow cooling of a magma, crystals of olivine may form and then settle to the bottom of the magma chamber because of their relatively high density. This concentrated accumulation of olivine can result in the formation of olivine-rich rocks such as dunite in the lower parts of a magma chamber."
+  rarity: 4
+  maxVeinAmount: 8
+  minVeinAmount: 3
+  scaleRange: {x: 0.7, y: 1.2}
+  mesh: {fileID: -2432090755550338912, guid: 646c8eca9a7459126d7fe890bb09c874, type: 3}
+  material: {fileID: 2100000, guid: 66ade57c17840ff76a5d34959019678e, type: 2}

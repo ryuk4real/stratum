@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Tourmaline
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 15
+  mineralName: Tourmaline
+  description: "\u201cTourmaline\u201d is the name of a large group of boron silicate minerals. These minerals share a common crystal structure and similar physical properties, but vary tremendously in chemical composition. The wide range of compositions and color zoning within crystals causes tourmaline to occur in more colors and color combinations than any other mineral group.\n\nTourmaline is one of the world\u2019s most popular gemstones. Because of its popularity, tourmaline is easy to find in jewelry stores. Well-formed tourmaline crystals are also valued by mineral specimen collectors. Specimens with attractive colors and crystal forms can sell for thousands of dollars.\n\nTourmaline most commonly occurs as an accessory mineral in igneous and metamorphic rocks. Large, well-formed crystals of tourmaline can form in cavities and fractures during hydrothermal activity. Tourmaline is a hard and tenacious mineral."
+  rarity: 8
+  maxVeinAmount: 3
+  minVeinAmount: 1
+  scaleRange: {x: 0.5, y: 1.0}
+  mesh: {fileID: -2432090755550338912, guid: 2d57d37f10f8718e42e54277df4bcccc, type: 3}
+  material: {fileID: 2100000, guid: 110b63d01fb553f15d8c5f23764e75eb, type: 2}

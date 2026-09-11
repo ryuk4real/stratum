@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Magnetite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 10
+  mineralName: Magnetite
+  description: "Magnetite is a very common iron oxide mineral that is found in igneous, metamorphic, and sedimentary rocks. It is the most commonly mined ore of iron. It is also the mineral with the highest iron content (72.4%).\n\nMagnetite is very easy to identify. It is one of just a few minerals that are attracted to a common magnet. It is a black, opaque, submetallic to metallic mineral with a Mohs hardness between 5 and 6.5. It is often found in the form of isometric crystals. It is the most strongly magnetic mineral found in nature."
+  rarity: 2
+  maxVeinAmount: 16
+  minVeinAmount: 6
+  scaleRange: {x: 0.9, y: 1.5}
+  mesh: {fileID: -2432090755550338912, guid: b4c0585fe80e5b8c7142a1928699d5d2, type: 3}
+  material: {fileID: 2100000, guid: 07181b36bce1adc9fe5dc4fbbb8ac5dd, type: 2}

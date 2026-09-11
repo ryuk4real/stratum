@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Epidote
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 6
+  mineralName: Epidote
+  description: "Epidote is a silicate mineral that is commonly found in regionally metamorphosed rocks of low-to-moderate grade. In these rocks, epidote is often associated with amphiboles, feldspars, quartz, and chlorite. It occurs as replacements of mineral grains that have been altered by metamorphism. It is frequently found in veins that cut granite. It occurs as monoclinic crystals in pegmatites. It is also found in massive form and as monoclinic crystals in marbles and schists that were formed or altered through contact metamorphism.\n\nEpidote usually ranges between yellowish green to pistachio green in color. Less often it is brownish green to black. In massive form it is usually translucent with a vitreous luster. Well-formed crystals from marble and pegmatite are often transparent. Iron is what produces epidote\u2019s greenish to brownish color."
+  rarity: 4
+  maxVeinAmount: 7
+  minVeinAmount: 2
+  scaleRange: {x: 0.8, y: 1.4}
+  mesh: {fileID: -2432090755550338912, guid: 01fb90bc633872fc7def1f68dd8ed09f, type: 3}
+  material: {fileID: 2100000, guid: b8ace920ec3350624b5caa0089929266, type: 2}

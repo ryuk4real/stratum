@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Biotite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 3
+  mineralName: Biotite
+  description: "Biotite is a name used for a large group of black mica minerals that are commonly found in igneous and metamorphic rocks. These include annite, phlogopite, siderophyllite, fluorophlogopite, fluorannite, eastonite, and many others. These micas vary in chemical composition but are all sheet silicate minerals with very similar physical properties. The name \u201cbiotite\u201d is used in the field and in entry-level geology courses because these minerals generally cannot be distinguished without optical, chemical, or x-ray analysis."
+  rarity: 2
+  maxVeinAmount: 12
+  minVeinAmount: 4
+  scaleRange: {x: 0.6, y: 1.2}
+  mesh: {fileID: -2432090755550338912, guid: e22b20e7e5f922e5ab7ab76a9331d175, type: 3}
+  material: {fileID: 2100000, guid: 08233e958a5941fba2adc17e88205d4a, type: 2}

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f2581b0ddc9f008294c9d813ebdebb1, type: 3}
+  m_Name: Apatite
+  m_EditorClassIdentifier: Assembly-CSharp::Mineral
+  id: 2
+  mineralName: Apatite
+  description: "Apatite is the name of a group of phosphate minerals with similar chemical compositions and physical properties. They are an important constituent of phosphorite, a rock mined for its phosphorus content and used to make fertilizers, acids, and chemicals.\n\nChemical Classification: Phosphate; Cleavage: Poor to indistinct; Streak: White; Luster: Vitreous to subresinous"
+  rarity: 5
+  maxVeinAmount: 6
+  minVeinAmount: 2
+  scaleRange: {x: 0.6, y: 1.1}
+  mesh: {fileID: -2432090755550338912, guid: 67f990516ae78392847270c3d0483c83, type: 3}
+  material: {fileID: 2100000, guid: a93c8034a854c65236e7fb16847ab2b7, type: 2}
