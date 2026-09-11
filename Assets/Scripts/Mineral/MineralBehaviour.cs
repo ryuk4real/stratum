@@ -9,7 +9,7 @@ using Oculus.Interaction.HandGrab;
 /// Controls the mineral's physical behavior and hand extraction
 /// </summary>
 [DisallowMultipleComponent]
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(Collider))]
 [RequireComponent(typeof(Rigidbody), typeof(Grabbable), typeof(HandGrabInteractable))]
 public class MineralBehaviour : MonoBehaviour
 {
@@ -36,6 +36,7 @@ public class MineralBehaviour : MonoBehaviour
     [SerializeField, Range(0.1f, 1f)] private float hapticStrength = 0.7f;
     [SerializeField, Range(0.05f, 0.5f)] private float hapticDuration = 0.2f;
 
+
     [Header("Debug & State")]
     [SerializeField] private MineralExtractionState state = MineralExtractionState.Buried;
     [Tooltip("Ratio of exposed raycasts.")]
@@ -46,7 +47,7 @@ public class MineralBehaviour : MonoBehaviour
     // Components
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
-    private MeshCollider meshCollider;
+    private Collider mineralCollider;
     private Rigidbody mineralRigidbody;
     private Grabbable grabbable;
     private HandGrabInteractable handGrabInteractable;
@@ -68,42 +69,28 @@ public class MineralBehaviour : MonoBehaviour
     {
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
-        meshCollider = GetComponent<MeshCollider>();
+        mineralCollider = GetComponent<Collider>();
         mineralRigidbody = GetComponent<Rigidbody>();
         grabbable = GetComponent<Grabbable>();
         handGrabInteractable = GetComponent<HandGrabInteractable>();
 
-        // Disable grabbable to prevent it from being picked up while buried
+        // Enforce kinematic and buried state
+        state = MineralExtractionState.Buried;
+        isAnchoredToTerrain = true;
+        mineralRigidbody.isKinematic = true;
+        mineralRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        mineralRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
         grabbable.ForceKinematicDisabled = true;
 
         ApplyMineralData();
         GenerateRaycastDirections();
-
-        meshCollider.convex = true; // Required for MeshCollider to work with physics
-
-        mineralRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-        mineralRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-
-        // At the start each mineral is kinematic and non-grabbable while buried in rock
-        state = MineralExtractionState.Buried;
-        isAnchoredToTerrain = true;
-        mineralRigidbody.isKinematic = true;
 
         SetInteractionEnabled(false);
     }
 
     private void Start()
     {
-        // Enforce kinematic state at game start: the mineral remains anchored in the rock
-        // and does NOT perform early unfreeze checks.
-        state = MineralExtractionState.Buried;
-        isAnchoredToTerrain = true;
-        if (mineralRigidbody != null)
-        {
-            mineralRigidbody.isKinematic = true;
-        }
-
-        SetInteractionEnabled(false);
+        
     }
 
     private void OnEnable()
@@ -136,7 +123,6 @@ public class MineralBehaviour : MonoBehaviour
             // When the hand releases the mineral, make it fully dynamic (non-kinematic)
             if (state == MineralExtractionState.Extracted || !isAnchoredToTerrain)
             {
-                if (meshCollider != null) meshCollider.convex = true;
                 if (mineralRigidbody != null) mineralRigidbody.isKinematic = false;
             }
         }
@@ -146,7 +132,7 @@ public class MineralBehaviour : MonoBehaviour
     {
         if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
         if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
-        if (meshCollider == null) meshCollider = GetComponent<MeshCollider>();
+        if (mineralCollider == null) mineralCollider = GetComponent<Collider>();
         if (mineralRigidbody == null) mineralRigidbody = GetComponent<Rigidbody>();
         if (grabbable == null) grabbable = GetComponent<Grabbable>();
         if (handGrabInteractable == null) handGrabInteractable = GetComponent<HandGrabInteractable>();
@@ -155,9 +141,21 @@ public class MineralBehaviour : MonoBehaviour
         GenerateRaycastDirections();
     }
 
+
+    public void SetMineralData(Mineral data)
+    {
+        mineralData = data;
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
+        ApplyMineralData();
+    }
+
     public void ApplyMineralData()
     {
         if (mineralData == null) return;
+
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
 
         if (meshFilter != null && mineralData.Mesh != null)
         {
@@ -167,12 +165,6 @@ public class MineralBehaviour : MonoBehaviour
         if (meshRenderer != null && mineralData.Material != null)
         {
             meshRenderer.sharedMaterial = mineralData.Material;
-        }
-
-        if (meshCollider != null && mineralData.Mesh != null)
-        {
-            meshCollider.sharedMesh = mineralData.Mesh;
-            meshCollider.convex = true;
         }
     }
 
@@ -214,7 +206,8 @@ public class MineralBehaviour : MonoBehaviour
         float scale = Mathf.Max(transform.lossyScale.x, Mathf.Max(transform.lossyScale.y, transform.lossyScale.z));
         float effectiveRayDistance = raycastDistance * scale;
 
-        Vector3 localCenter = meshFilter.sharedMesh.bounds.center;
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        Vector3 localCenter = (meshFilter != null && meshFilter.sharedMesh != null) ? meshFilter.sharedMesh.bounds.center : Vector3.zero;
         Vector3 worldCenter = transform.TransformPoint(localCenter);
 
         bool prevBackfaces = Physics.queriesHitBackfaces;
@@ -223,14 +216,15 @@ public class MineralBehaviour : MonoBehaviour
         for (int i = 0; i < raycastCount; i++)
         {
             Vector3 rayDir = transform.TransformDirection(localRayDirections[i]);
+            Vector3 samplePoint = worldCenter + rayDir * effectiveRayDistance;
 
-            // Raycast outward from center through mineral to check if terrain obstructs this direction
+            // Raycast check against terrain collider (if a polygon is directly intercepted)
             int hitCount = Physics.RaycastNonAlloc(worldCenter, rayDir, raycastHits, effectiveRayDistance, ~0, QueryTriggerInteraction.Ignore);
             bool hitTerrain = false;
             for (int h = 0; h < hitCount; h++)
             {
                 Collider col = raycastHits[h].collider;
-                if (col == null || col == meshCollider || col.transform.IsChildOf(transform)) continue;
+                if (col == null || col == mineralCollider || col.transform.IsChildOf(transform)) continue;
 
                 if (col.TryGetComponent<TerrainChunk>(out _) || col.GetComponentInParent<TerrainChunk>() != null || col.CompareTag("Terrain"))
                 {
@@ -239,8 +233,15 @@ public class MineralBehaviour : MonoBehaviour
                 }
             }
 
-            // If ray hits terrain, it is buried in rock. If ray hits nothing, that direction is open air.
-            raycastExposed[i] = !hitTerrain;
+            // We check the true volumetric density at the sample point so that solid rock is never mistaken for air.
+            bool isSolidTerrain = hitTerrain;
+            if (!isSolidTerrain)
+            {
+                isSolidTerrain = TerrainManager.Instance.IsPointInSolidTerrain(samplePoint);
+            }
+
+            // Direction is exposed to air only if it is not inside solid terrain
+            raycastExposed[i] = !isSolidTerrain;
             if (raycastExposed[i])
             {
                 exposedCount++;
@@ -332,8 +333,8 @@ public class MineralBehaviour : MonoBehaviour
         state = MineralExtractionState.Extracted;
         isAnchoredToTerrain = false;
 
-        // Mesh collider must be convex when Rigidbody is dynamic
-        meshCollider.convex = true;
+        transform.SetParent(null);
+
         grabbable.ForceKinematicDisabled = true;
 
         // Keep grab interactions enabled
@@ -343,8 +344,8 @@ public class MineralBehaviour : MonoBehaviour
 
     private void SetInteractionEnabled(bool isEnabled)
     {
-        grabbable.enabled = isEnabled;
-        handGrabInteractable.enabled = isEnabled;
+        if (grabbable != null) grabbable.enabled = isEnabled;
+        if (handGrabInteractable != null) handGrabInteractable.enabled = isEnabled;
     }
 
     private void PlayExtractionFeedback()

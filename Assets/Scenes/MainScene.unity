@@ -1822,8 +1822,8 @@ Transform:
   m_GameObject: {fileID: 365748203}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 160, y: 160, z: 320}
-  m_LocalScale: {x: 320, y: 320, z: 1}
+  m_LocalPosition: {x: 160, y: 245, z: 188}
+  m_LocalScale: {x: 56, y: 100, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -2225,8 +2225,8 @@ Transform:
   m_GameObject: {fileID: 424478431}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 160, y: 320, z: 160}
-  m_LocalScale: {x: 320, y: 1, z: 320}
+  m_LocalPosition: {x: 160, y: 295, z: 160}
+  m_LocalScale: {x: 56, y: 1, z: 56}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -2899,8 +2899,8 @@ Transform:
   m_GameObject: {fileID: 560100579}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 320, y: 160, z: 160}
-  m_LocalScale: {x: 1, y: 320, z: 320}
+  m_LocalPosition: {x: 188, y: 245, z: 160}
+  m_LocalScale: {x: 1, y: 100, z: 56}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -3155,17 +3155,21 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2625989402357744215, guid: ae150d1117cf68874afae816652e3039, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 4169490447436672889, guid: ae150d1117cf68874afae816652e3039, type: 3}
       propertyPath: digRadius
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4169490447436672889, guid: ae150d1117cf68874afae816652e3039, type: 3}
       propertyPath: digStrength
-      value: 0.5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 4169490447436672889, guid: ae150d1117cf68874afae816652e3039, type: 3}
       propertyPath: maxReachDistance
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 4169490447436672889, guid: ae150d1117cf68874afae816652e3039, type: 3}
       propertyPath: terrainLayerMask.m_Bits
@@ -3216,8 +3220,20 @@ PrefabInstance:
       value: PlayerTest
       objectReference: {fileID: 0}
     - target: {fileID: 7767820749018690470, guid: ae150d1117cf68874afae816652e3039, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 7767820749018690470, guid: ae150d1117cf68874afae816652e3039, type: 3}
       propertyPath: m_IsActive
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7767820749018690470, guid: ae150d1117cf68874afae816652e3039, type: 3}
+      propertyPath: m_TagString
+      value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 8381780704962062293, guid: ae150d1117cf68874afae816652e3039, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3383,8 +3399,8 @@ Transform:
   m_GameObject: {fileID: 681423332}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 160, y: 160, z: 0}
-  m_LocalScale: {x: 320, y: 320, z: 1}
+  m_LocalPosition: {x: 160, y: 245, z: 132}
+  m_LocalScale: {x: 56, y: 100, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -3922,8 +3938,8 @@ Transform:
   m_GameObject: {fileID: 733654137}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 160, y: 0, z: 160}
-  m_LocalScale: {x: 320, y: 1, z: 320}
+  m_LocalPosition: {x: 160, y: 195, z: 160}
+  m_LocalScale: {x: 56, y: 1, z: 56}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -5371,12 +5387,19 @@ MonoBehaviour:
   mineralLayerMask:
     serializedVersion: 2
     m_Bits: 512
-  chunkSize: 40
-  voxelSize: 0.8
-  chunkDimensions: {x: 10, y: 10, z: 10}
+  mineralLayer: 9
+  generateMinerals: 1
+  playerTransform: {fileID: 0}
+  veinPercentage: 20
+  mineralDepositsPerChunk: {x: 2, y: 5}
+  veinSpreadRadius: 1.1
+  availableMinerals: []
+  chunkSize: 8
+  voxelSize: 0.5
+  chunkDimensions: {x: 14, y: 25, z: 14}
   centerCavernInTerrain: 0
   cavernCenter: {x: 160, y: 275, z: 160}
-  cavernCenterIsRelative: 1
+  cavernCenterIsRelative: 0
   cavernSize: {x: 20, y: 7, z: 20}
   isoLevel: 0
   noiseFrequency: 0.03
@@ -5394,12 +5417,10 @@ Transform:
   m_GameObject: {fileID: 1008698889}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 132, y: 195, z: 132}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1106688799}
-  - {fileID: 1492786531}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1016568653
@@ -5681,7 +5702,7 @@ Transform:
   - {fileID: 762691809}
   - {fileID: 762691813}
   - {fileID: 762691817}
-  m_Father: {fileID: 1008698891}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1131261422 stripped
 GameObject:
@@ -7285,7 +7306,7 @@ Transform:
   - {fileID: 365748204}
   - {fileID: 560100580}
   - {fileID: 1706724220}
-  m_Father: {fileID: 1008698891}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1546513616
 GameObject:
@@ -8092,8 +8113,8 @@ Transform:
   m_GameObject: {fileID: 1706724219}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 160, z: 160}
-  m_LocalScale: {x: 1, y: 320, z: 320}
+  m_LocalPosition: {x: 132, y: 245, z: 160}
+  m_LocalScale: {x: 1, y: 100, z: 56}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1492786531}
@@ -9630,6 +9651,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4210984512345678901, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
+      propertyPath: digRadius
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4210984512345678901, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
+      propertyPath: digStrength
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4210984512345678901, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
+      propertyPath: hitCooldown
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4210984512345678901, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
+      propertyPath: reachDistance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4210984512345678901, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
+      propertyPath: terrainLayerMask.m_Bits
+      value: 576
+      objectReference: {fileID: 0}
     - target: {fileID: 6687321938703416651, guid: 0ada194817fb8d04983166a9a52bc78e, type: 3}
       propertyPath: m_Name
       value: Pickaxe
@@ -9991,3 +10032,5 @@ SceneRoots:
   - {fileID: 1008698891}
   - {fileID: 626824727}
   - {fileID: 2068939806}
+  - {fileID: 1106688799}
+  - {fileID: 1492786531}

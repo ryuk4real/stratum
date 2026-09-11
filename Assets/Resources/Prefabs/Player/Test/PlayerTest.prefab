@@ -267,8 +267,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bca0431d914930aa4b371c42a24b5f9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProceduralMeshGeneration.PlayerTerrainDigger
-  digRadius: 2.5
+  digRadius: 1.2
   digStrength: 2
+  digCooldown: 0.18
   maxReachDistance: 20
   terrainLayerMask:
     serializedVersion: 2

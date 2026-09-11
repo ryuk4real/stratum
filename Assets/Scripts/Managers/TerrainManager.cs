@@ -20,21 +20,36 @@ public class TerrainManager : MonoBehaviour, IManager
     [SerializeField] private PhysicsMaterial terrainPhysicsMaterial;
     [SerializeField] private int terrainLayer = 6;
     [SerializeField] private LayerMask mineralLayerMask;
+    [SerializeField] private int mineralLayer = 9;
+
+    [Header("Mineral Generation Settings")]
+    [Tooltip("If true, minerals are generated procedural in chunks when visited by the player.")]
+    [SerializeField] private bool generateMinerals = true;
+    [Tooltip("Reference to the player Transform. If null, automatically tracked at runtime.")]
+    [SerializeField] private Transform playerTransform;
+    [Tooltip("Percentage chance for a deposit to be a Vein vs Single (e.g. 40% means 40% veins and 60% singles).")]
+    [SerializeField, Range(0f, 100f)] private float veinPercentage = 40f;
+    [Tooltip("Min and Max number of mineral deposits (veins or singles) per chunk.")]
+    [SerializeField] private Vector2Int mineralDepositsPerChunk = new Vector2Int(2, 5);
+    [Tooltip("Dispersion radius for minerals belonging to the same vein.")]
+    [SerializeField, Min(0.1f)] private float veinSpreadRadius = 2.0f;
+    [Tooltip("Available minerals in the world. If empty, loaded from Resources.")]
+    [SerializeField] private Mineral[] availableMinerals;
 
     [Header("Chunk Grid Settings")]
-    [SerializeField] private int chunkSize = 40;
-    [SerializeField] private float voxelSize = 0.8f;
-    [SerializeField] private Vector3Int chunkDimensions = new Vector3Int(2, 10, 2);
+    [SerializeField] private int chunkSize = 8;
+    [SerializeField] private float voxelSize = 0.5f;
+    [SerializeField] private Vector3Int chunkDimensions = new Vector3Int(14, 25, 14);
 
     [Header("Cavern & Room Settings")]
     [Tooltip("If true, automatically centers the starting cavern in the geometric center of the terrain to generate.")]
-    [SerializeField] private bool centerCavernInTerrain = true;
+    [SerializeField] private bool centerCavernInTerrain = false;
     [Tooltip("Center position of the initial cavern room. If cavernCenterIsRelative is true, this is an offset relative to TerrainManager.")]
-    [SerializeField] private Vector3 cavernCenter = new Vector3(32f, 160f, 32f);
+    [SerializeField] private Vector3 cavernCenter = new Vector3(160f, 275f, 160f);
     [Tooltip("If true, cavernCenter is relative to TerrainManager's transform position.")]
-    [SerializeField] private bool cavernCenterIsRelative = true;
+    [SerializeField] private bool cavernCenterIsRelative = false;
     [Tooltip("Width (X), Height (Y), Depth (Z) of the starting cavern room.")]
-    [SerializeField] private Vector3 cavernSize = new Vector3(24f, 10f, 24f);
+    [SerializeField] private Vector3 cavernSize = new Vector3(20f, 7f, 20f);
 
     [Header("Colors")]
     private Color cavernGizmoColor = Color.yellow;
@@ -95,6 +110,10 @@ public class TerrainManager : MonoBehaviour, IManager
         if (voxelSize < 0.01f) voxelSize = 0.01f;
         chunkDimensions = Vector3Int.Max(chunkDimensions, Vector3Int.one);
 
+        if (mineralDepositsPerChunk.x < 0) mineralDepositsPerChunk.x = 0;
+        if (mineralDepositsPerChunk.y < mineralDepositsPerChunk.x) mineralDepositsPerChunk.y = mineralDepositsPerChunk.x;
+        if (veinSpreadRadius < 0.1f) veinSpreadRadius = 0.1f;
+
         if (centerCavernInTerrain)
         {
             CenterCavernInTerrain();
@@ -119,28 +138,16 @@ public class TerrainManager : MonoBehaviour, IManager
         }
     }
 
+    private void Update()
+    {
+        if (!isInitialized || !generateMinerals) return;
 
-    /// Initialize the manager, allocate GPU buffers and generate all chunks in memory
+        TrackPlayerChunk();
+    }
+
+    // Initialize the manager, allocate GPU buffers and generate all chunks in memory
     public void Initialize()
     {
-        if (terrainLayer == 0)
-        {
-            int layerFromName = LayerMask.NameToLayer("Terrain");
-            if (layerFromName != -1)
-            {
-                terrainLayer = layerFromName;
-            }
-        }
-
-        if (mineralLayerMask.value == 0)
-        {
-            int minLayer = LayerMask.NameToLayer("Mineral");
-            if (minLayer != -1)
-            {
-                mineralLayerMask = 1 << minLayer;
-            }
-        }
-
         if (terrainMaterial != null)
         {
             float totalHeight = chunkDimensions.y * chunkSize * voxelSize;
@@ -179,6 +186,11 @@ public class TerrainManager : MonoBehaviour, IManager
         GenerateAllChunks();
         isInitialized = true;
         Debug.Log($"[TerrainManager] Successfully initialized. Generated {chunks.Count} chunks.");
+
+        if (generateMinerals)
+        {
+            TrackPlayerChunk();
+        }
     }
 
     // Generates the initial grid of chunks and computes their density and continuous mesh
@@ -295,17 +307,25 @@ public class TerrainManager : MonoBehaviour, IManager
 
         if (affectedChunks.Count > 0)
         {
-            // Notify any minerals overlapping the excavation area
-            float checkRadius = radius * RADIUS_MULTIPLIER;
-            Collider[] hitMinerals = Physics.OverlapSphere(worldPosition, checkRadius, mineralLayerMask);
-            for (int i = 0; i < hitMinerals.Length; i++)
+            // Restrict mineral exposure check strictly to the single chunk where the dig occurred
+            TerrainChunk digChunk = GetChunkAtWorldPos(worldPosition);
+            if (digChunk != null)
             {
-                if (hitMinerals[i].TryGetComponent<MineralBehaviour>(out var mineral))
+                // check radius immediately around the excavated hole
+                float checkRadius = radius * 1.25f;
+                Collider[] hitMinerals = Physics.OverlapSphere(worldPosition, checkRadius, mineralLayerMask);
+                for (int i = 0; i < hitMinerals.Length; i++)
                 {
-                    mineral.CheckExposure();
+                    // Only process minerals belonging to this single targeted chunk
+                    if (hitMinerals[i].transform.IsChildOf(digChunk.transform) || digChunk.WorldBounds.Contains(hitMinerals[i].transform.position))
+                    {
+                        if (hitMinerals[i].TryGetComponent<MineralBehaviour>(out var mineral))
+                        {
+                            mineral.CheckExposure();
+                        }
+                    }
                 }
             }
-
         }
     }
 
@@ -324,6 +344,281 @@ public class TerrainManager : MonoBehaviour, IManager
         int cy = Mathf.FloorToInt(localPos.y / (chunkSize * voxelSize));
         int cz = Mathf.FloorToInt(localPos.z / (chunkSize * voxelSize));
         return GetChunk(new Vector3Int(cx, cy, cz));
+    }
+
+    // Checks if a world position is inside solid volumetric terrain (density > isoLevel + thresholdOffset).
+    public bool IsPointInSolidTerrain(Vector3 worldPos, float thresholdOffset = 0.1f)
+    {
+        TerrainChunk chunk = GetChunkAtWorldPos(worldPos);
+        if (chunk == null) return false;
+
+        return chunk.IsPointInSolidTerrain(worldPos, isoLevel + thresholdOffset);
+    }
+
+    // Tracks the chunk where the player is currently located and triggers mineral generation if not already generated.
+    private void TrackPlayerChunk()
+    {
+        if (playerTransform == null)
+        {
+            FindPlayer();
+            if (playerTransform == null) return;
+        }
+
+        TerrainChunk currentChunk = GetChunkAtWorldPos(playerTransform.position);
+        if (currentChunk != null && !currentChunk.isMineralGenerated)
+        {
+            GenerateMineralsInChunk(currentChunk);
+            currentChunk.isMineralGenerated = true;
+        }
+    }
+
+    private void FindPlayer()
+    {
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            playerTransform = playerObj.transform;
+            return;
+        }
+    }
+
+    // Generates mineral veins or single mineral inside the solid terrain of the given chunk
+    public void GenerateMineralsInChunk(TerrainChunk chunk)
+    {
+        if (chunk == null || !generateMinerals) return;
+
+        // Ensure available minerals are loaded
+        if (availableMinerals == null || availableMinerals.Length == 0)
+        {
+            availableMinerals = Resources.LoadAll<Mineral>("Minerals");
+            if (availableMinerals == null || availableMinerals.Length == 0)
+            {
+                Debug.LogWarning("No Mineral ScriptableObjects found in availableMinerals or Resources/Minerals.");
+                return;
+            }
+        }
+
+        // Read chunk density data to locate solid rock voxels
+        float[] densities = chunk.GetDensityData();
+        if (densities == null) return;
+
+        // Collect solid voxels strictly inside terrain, away from air and chunk borders
+        float solidThreshold = isoLevel + 0.8f;
+        List<Vector3Int> solidVoxels = chunk.GetSolidVoxelIndices(densities, solidThreshold, margin: 2);
+        if (solidVoxels.Count == 0)
+        {
+            // Chunk has no solid interior
+            return;
+        }
+
+        // Calculate chunk normalized distance from spawn cavern
+        Vector3 cavernCenterWorld = GetWorldCavernCenter();
+        float distFromSpawn = Vector3.Distance(chunk.WorldBounds.center, cavernCenterWorld);
+        float maxDist = GetMaxTerrainDistance(cavernCenterWorld);
+        float normalizedDist = Mathf.Clamp01(distFromSpawn / Mathf.Max(1f, maxDist));
+
+        int minRarity = int.MaxValue;
+        int maxRarity = int.MinValue;
+        for (int i = 0; i < availableMinerals.Length; i++)
+        {
+            if (availableMinerals[i] == null) continue;
+            int r = (int)availableMinerals[i].Rarity;
+            if (r < minRarity) minRarity = r;
+            if (r > maxRarity) maxRarity = r;
+        }
+        if (minRarity > maxRarity) { minRarity = 1; maxRarity = 8; }
+
+        int depositCount = UnityEngine.Random.Range(mineralDepositsPerChunk.x, mineralDepositsPerChunk.y + 1);
+
+        for (int d = 0; d < depositCount; d++)
+        {
+            if (solidVoxels.Count == 0) break;
+
+            // Pick mineral based on rarity vs distance from spawn
+            Mineral selectedMineral = SelectMineralForDistance(normalizedDist, minRarity, maxRarity);
+            if (selectedMineral == null) continue;
+
+            // Determine if vein or single
+            bool isVein = (UnityEngine.Random.value * 100f) < veinPercentage;
+            int mineralCount = 1;
+            if (isVein)
+            {
+                mineralCount = UnityEngine.Random.Range((int)selectedMineral.MinVeinAmount, (int)selectedMineral.MaxVeinAmount + 1);
+                mineralCount = Mathf.Max(1, mineralCount);
+            }
+
+            // Pick a random solid voxel as the origin of the deposit
+            int voxelIdx = UnityEngine.Random.Range(0, solidVoxels.Count);
+            Vector3Int originVoxel = solidVoxels[voxelIdx];
+            Vector3 originPos = chunk.VoxelCoordToWorldPos(originVoxel);
+
+            // Spawn first mineral at origin
+            SpawnMineralInstance(chunk, selectedMineral, originPos);
+
+            // If vein, spawn remaining clustered nearby inside solid terrain
+            for (int i = 1; i < mineralCount; i++)
+            {
+                Vector3 candidatePos = originPos;
+                bool foundSolidSpot = false;
+
+                // Attempt to find a nearby point that is also inside solid terrain
+                for (int attempt = 0; attempt < 8; attempt++)
+                {
+                    Vector3 offset = UnityEngine.Random.insideUnitSphere * veinSpreadRadius;
+                    Vector3 testPos = originPos + offset;
+                    if (chunk.IsPointInTerrain(testPos, densities, solidThreshold))
+                    {
+                        candidatePos = testPos;
+                        foundSolidSpot = true;
+                        break;
+                    }
+                }
+
+                if (foundSolidSpot)
+                {
+                    SpawnMineralInstance(chunk, selectedMineral, candidatePos);
+                }
+            }
+        }
+    }
+
+    // Selects a mineral to spawn based on its rarity relative to normalized distance from the spawn cavern.
+    // Rarer minerals have very low probability near spawn and become prominent with distance.
+    private Mineral SelectMineralForDistance(float normalizedDist, int minRarity, int maxRarity)
+    {
+        if (availableMinerals == null || availableMinerals.Length == 0) return null;
+
+        // Target rarity smoothly increases with distance from spawn
+        float targetRarity = Mathf.Lerp(minRarity, maxRarity, normalizedDist);
+
+        List<Mineral> candidates = new List<Mineral>();
+        List<float> weights = new List<float>();
+
+        float rarityRange = Mathf.Max(1f, maxRarity - minRarity);
+
+        for (int i = 0; i < availableMinerals.Length; i++)
+        {
+            Mineral m = availableMinerals[i];
+            if (m == null) continue;
+
+            float r = m.Rarity;
+
+            // Common minerals maintain a strong natural base abundance everywhere,
+            // while rare minerals have a very low baseline probability near spawn.
+            float commonnessFactor = 1f - ((r - minRarity) / rarityRange); // 1.0 for most common, 0.0 for rarest
+            float baseWeight = Mathf.Lerp(0.01f, 0.45f, commonnessFactor);
+
+            // Minerals closer to the chunk's target rarity receive a bonus
+            float diff = Mathf.Abs(r - targetRarity);
+            float distanceBonus = Mathf.Exp(-0.5f * (diff * diff) / 4.0f);
+
+            float weight = baseWeight + distanceBonus;
+
+            candidates.Add(m);
+            weights.Add(weight);
+        }
+
+        // Fallback to all valid minerals if gating filtered everything out
+        if (candidates.Count == 0)
+        {
+            for (int i = 0; i < availableMinerals.Length; i++)
+            {
+                if (availableMinerals[i] != null) candidates.Add(availableMinerals[i]);
+            }
+            if (candidates.Count == 0) return null;
+            return candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        }
+
+        // Weighted random selection
+        float totalWeight = 0f;
+        for (int i = 0; i < weights.Count; i++) totalWeight += weights[i];
+
+        float roll = UnityEngine.Random.value * totalWeight;
+        float cumulative = 0f;
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            cumulative += weights[i];
+            if (roll <= cumulative)
+            {
+                return candidates[i];
+            }
+        }
+
+        return candidates[candidates.Count - 1];
+    }
+
+    private void SpawnMineralInstance(TerrainChunk chunk, Mineral mineral, Vector3 worldPos)
+    {
+        // Attempt to load the specific mineral prefab
+        GameObject prefabToUse = Resources.Load<GameObject>($"Prefabs/Mineral/{mineral.MineralName}");
+
+        if (prefabToUse == null) return;
+
+        // Add a slight random jitter within half a voxel so minerals don't align on a grid
+        float jitter = voxelSize * 0.35f;
+        Vector3 jitterOffset = new Vector3(
+            UnityEngine.Random.Range(-jitter, jitter),
+            UnityEngine.Random.Range(-jitter, jitter),
+            UnityEngine.Random.Range(-jitter, jitter)
+        );
+        Vector3 finalPos = worldPos + jitterOffset;
+        Quaternion rotation = UnityEngine.Random.rotation;
+
+        GameObject obj = Instantiate(prefabToUse, finalPos, rotation, chunk.transform);
+        obj.name = $"{mineral.MineralName}_{chunk.chunkCoord.x}_{chunk.chunkCoord.y}_{chunk.chunkCoord.z}";
+        obj.layer = mineralLayer;
+
+        // Ensure kinematic state immediately 
+        if (obj.TryGetComponent<Rigidbody>(out var rb))
+        {
+            rb.isKinematic = true;
+        }
+
+        // Apply scale within mineral's scale range
+        Vector2 scaleRange = mineral.ScaleRange;
+        if (scaleRange.x <= 0f) scaleRange.x = 1f;
+        if (scaleRange.y < scaleRange.x) scaleRange.y = scaleRange.x;
+        float scale = UnityEngine.Random.Range(scaleRange.x, scaleRange.y);
+        obj.transform.localScale = Vector3.one * scale;
+
+        // Configure MineralBehaviour
+        if (obj.TryGetComponent<MineralBehaviour>(out var mb))
+        {
+            mb.SetMineralData(mineral);
+        }
+    }
+
+    private float GetMaxTerrainDistance(Vector3 referencePos)
+    {
+        Vector3 terrainSize = new Vector3(
+            chunkDimensions.x * chunkSize * voxelSize,
+            chunkDimensions.y * chunkSize * voxelSize,
+            chunkDimensions.z * chunkSize * voxelSize
+        );
+        Vector3 min = transform.position;
+        Vector3 max = transform.position + terrainSize;
+
+        // Test 8 corners of terrain bounding box
+        float maxDist = 0f;
+        Vector3[] corners = new Vector3[8]
+        {
+            new Vector3(min.x, min.y, min.z),
+            new Vector3(max.x, min.y, min.z),
+            new Vector3(min.x, max.y, min.z),
+            new Vector3(max.x, max.y, min.z),
+            new Vector3(min.x, min.y, max.z),
+            new Vector3(max.x, min.y, max.z),
+            new Vector3(min.x, max.y, max.z),
+            new Vector3(max.x, max.y, max.z)
+        };
+
+        for (int i = 0; i < 8; i++)
+        {
+            float d = Vector3.Distance(referencePos, corners[i]);
+            if (d > maxDist) maxDist = d;
+        }
+
+        return Mathf.Max(maxDist, 1f);
     }
 
     // Release all GPU resources, destroy chunk gameobjects and reset state

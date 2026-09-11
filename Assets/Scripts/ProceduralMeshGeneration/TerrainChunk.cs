@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +15,9 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     public float voxelSize;
     public int numPointsPerAxis; // chunkSize + 1 per halo cells
 
+    [Header("Mineral Generation State")]
+    public bool isMineralGenerated = false;
+
     private ComputeBuffer densityBuffer;
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
@@ -21,6 +25,9 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     private Mesh mesh;
 
     private bool isInitialized = false;
+
+    private float[] cachedDensities;
+    private bool isDensityCacheDirty = true;
 
     public Bounds WorldBounds { get; private set; }
 
@@ -30,6 +37,9 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         chunkSize = size;
         voxelSize = vSize;
         numPointsPerAxis = chunkSize + 1;
+        isMineralGenerated = false;
+        cachedDensities = null;
+        isDensityCacheDirty = true;
 
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
@@ -96,6 +106,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
 
         int threadsPerAxis = Mathf.CeilToInt(numPointsPerAxis / 4.0f); // Each thread group has 4x4x4 threads
         shader.Dispatch(kernelGenerateDensity, threadsPerAxis, threadsPerAxis, threadsPerAxis);
+        isDensityCacheDirty = true;
     }
 
     // Adds or removes density in a spherical region around the given world center position
@@ -121,6 +132,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
 
         int threadsPerAxis = Mathf.CeilToInt(numPointsPerAxis / 4.0f);
         shader.Dispatch(kernelModify, threadsPerAxis, threadsPerAxis, threadsPerAxis);
+        isDensityCacheDirty = true;
         return true;
     }
 
@@ -223,6 +235,86 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     }
 
     public bool IsVisible => meshRenderer != null && meshRenderer.enabled;
+
+    /// <summary>
+    /// Reads the density data from GPU back into a float array.
+    /// </summary>
+    public float[] GetDensityData()
+    {
+        if (!isInitialized || densityBuffer == null) return null;
+        int totalPoints = numPointsPerAxis * numPointsPerAxis * numPointsPerAxis;
+        float[] densities = new float[totalPoints];
+        densityBuffer.GetData(densities);
+        return densities;
+    }
+
+    /// <summary>
+    /// Collects indices of voxels in this chunk that are strictly inside solid terrain (density > threshold)
+    /// keeping a safety margin from the chunk boundaries.
+    /// </summary>
+    public List<Vector3Int> GetSolidVoxelIndices(float[] densities, float threshold, int margin = 2)
+    {
+        var result = new List<Vector3Int>();
+        if (densities == null) return result;
+
+        int minBound = Mathf.Clamp(margin, 0, chunkSize);
+        int maxBound = Mathf.Clamp(chunkSize - margin, minBound, chunkSize);
+
+        for (int z = minBound; z <= maxBound; z++)
+        {
+            for (int y = minBound; y <= maxBound; y++)
+            {
+                for (int x = minBound; x <= maxBound; x++)
+                {
+                    int index = x + y * numPointsPerAxis + z * numPointsPerAxis * numPointsPerAxis;
+                    if (densities[index] > threshold)
+                    {
+                        result.Add(new Vector3Int(x, y, z));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Checks if a world position is inside the solid terrain of this chunk given the density array.
+    /// </summary>
+    public bool IsPointInTerrain(Vector3 worldPos, float[] densities, float threshold)
+    {
+        if (densities == null) return false;
+        Vector3 localPos = worldPos - GetWorldPosition();
+        int x = Mathf.RoundToInt(localPos.x / voxelSize);
+        int y = Mathf.RoundToInt(localPos.y / voxelSize);
+        int z = Mathf.RoundToInt(localPos.z / voxelSize);
+
+        if (x < 0 || x >= numPointsPerAxis || y < 0 || y >= numPointsPerAxis || z < 0 || z >= numPointsPerAxis)
+        {
+            return false;
+        }
+
+        int index = x + y * numPointsPerAxis + z * numPointsPerAxis * numPointsPerAxis;
+        return densities[index] > threshold;
+    }
+
+    /// <summary>
+    /// Checks if a world position is inside the solid terrain using cached density data (auto-refreshed when dirty).
+    /// </summary>
+    public bool IsPointInSolidTerrain(Vector3 worldPos, float threshold)
+    {
+        if (isDensityCacheDirty || cachedDensities == null)
+        {
+            cachedDensities = GetDensityData();
+            isDensityCacheDirty = false;
+        }
+
+        return IsPointInTerrain(worldPos, cachedDensities, threshold);
+    }
+
+    public Vector3 VoxelCoordToWorldPos(Vector3Int coord)
+    {
+        return GetWorldPosition() + new Vector3(coord.x, coord.y, coord.z) * voxelSize;
+    }
 
     public void Dispose()
     {
