@@ -18,6 +18,6 @@ MonoBehaviour:
   rarity: 4
   maxVeinAmount: 8
   minVeinAmount: 3
-  scaleRange: {x: 0.7, y: 1.2}
+  scaleRange: {x: 2.4, y: 4.2}
   mesh: {fileID: -2432090755550338912, guid: 646c8eca9a7459126d7fe890bb09c874, type: 3}
   material: {fileID: 2100000, guid: 66ade57c17840ff76a5d34959019678e, type: 2}
