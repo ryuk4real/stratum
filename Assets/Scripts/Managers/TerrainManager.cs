@@ -18,9 +18,8 @@ public class TerrainManager : MonoBehaviour, IManager
     [Header("Material & Physics")]
     [SerializeField] private Material terrainMaterial;
     [SerializeField] private PhysicsMaterial terrainPhysicsMaterial;
-    [SerializeField] private int terrainLayer = 6;
-    [SerializeField] private LayerMask mineralLayerMask;
-    [SerializeField] private int mineralLayer = 9;
+    [SerializeField] private LayerMask terrainLayer;
+    [SerializeField] private LayerMask mineralLayer;
 
     [Header("Mineral Generation Settings")]
     [Tooltip("If true, minerals are generated procedural in chunks when visited by the player.")]
@@ -74,6 +73,24 @@ public class TerrainManager : MonoBehaviour, IManager
     public float VoxelSize => voxelSize;
     public Vector3Int ChunkDimensions => chunkDimensions;
     public Vector3 CavernSize => cavernSize;
+    public LayerMask TerrainLayer => terrainLayer;
+    public LayerMask MineralLayer => mineralLayer;
+    public LayerMask MineralLayerMask => mineralLayer;
+
+    [Header("Cavern Wall & Ceiling Noise Settings")]
+    [Tooltip("Amplitude of the Perlin noise on the wall exposed to the terrain.")]
+    [SerializeField] private float wallNoiseAmplitude = 1.0f;
+    [Tooltip("Frequency of the Perlin noise on the wall exposed to the terrain.")]
+    [SerializeField] private float wallNoiseFrequency = 0.25f;
+    [Tooltip("Amplitude of the Perlin noise on the cavern ceiling.")]
+    [SerializeField] private float ceilingNoiseAmplitude = 1.2f;
+    [Tooltip("Frequency of the Perlin noise on the cavern ceiling.")]
+    [SerializeField] private float ceilingNoiseFrequency = 0.25f;
+
+    public float WallNoiseAmplitude => wallNoiseAmplitude;
+    public float WallNoiseFrequency => wallNoiseFrequency;
+    public float CeilingNoiseAmplitude => ceilingNoiseAmplitude;
+    public float CeilingNoiseFrequency => ceilingNoiseFrequency;
 
     [Header("Rock & Wall Noise Settings")]
     [SerializeField] private float isoLevel = 0.0f;
@@ -220,34 +237,67 @@ public class TerrainManager : MonoBehaviour, IManager
                 worldCavernCenter,
                 cavernSize,
                 noiseFrequency,
-                terrainHeightVariation
+                terrainHeightVariation,
+                wallNoiseAmplitude,
+                wallNoiseFrequency,
+                ceilingNoiseAmplitude,
+                ceilingNoiseFrequency
             );
         }
 
-        // Perform Marching Cubes
+        // Perform Marching Cubes only for chunks that intersect the starting cavern!
+        // At startup, any chunk outside the cavern bounds is 100% solid rock with 0 triangles.
+        // Skipping ~4,500 empty Marching Cubes dispatches and synchronous GPU GetData stalls avoids startup freezes!
+        float maxMargin = Mathf.Max(wallNoiseAmplitude, ceilingNoiseAmplitude) + terrainHeightVariation + 3f;
+        Bounds cavernBounds = new Bounds(worldCavernCenter, cavernSize + Vector3.one * (maxMargin * 2f));
+
         foreach (var chunk in chunks.Values)
         {
-            chunk.Polygonise(
-                marchingCubesShader,
-                kernelMarchingCubes,
-                triangleBuffer,
-                counterBuffer,
-                triTableBuffer,
-                edgeTableBuffer,
-                maxTrianglesPerChunk,
-                isoLevel,
-                worldCavernCenter,
-                cavernSize,
-                noiseFrequency,
-                terrainHeightVariation
-            );
+            if (chunk.WorldBounds.Intersects(cavernBounds))
+            {
+                chunk.Polygonise(
+                    marchingCubesShader,
+                    kernelMarchingCubes,
+                    triangleBuffer,
+                    counterBuffer,
+                    triTableBuffer,
+                    edgeTableBuffer,
+                    maxTrianglesPerChunk,
+                    isoLevel,
+                    worldCavernCenter,
+                    cavernSize,
+                    noiseFrequency,
+                    terrainHeightVariation,
+                    wallNoiseAmplitude,
+                    wallNoiseFrequency,
+                    ceilingNoiseAmplitude,
+                    ceilingNoiseFrequency
+                );
+            }
         }
+    }
+
+    private static int LayerMaskToLayer(LayerMask mask, string fallbackName, int fallbackLayer)
+    {
+        int val = mask.value;
+        if (val <= 0)
+        {
+            int named = LayerMask.NameToLayer(fallbackName);
+            return named != -1 ? named : fallbackLayer;
+        }
+        int layer = 0;
+        while ((val & 1) == 0 && layer < 31)
+        {
+            val >>= 1;
+            layer++;
+        }
+        return layer;
     }
 
     private TerrainChunk CreateChunk(Vector3Int coord)
     {
         GameObject chunkObj = new GameObject($"Chunk_{coord.x}_{coord.y}_{coord.z}");
-        chunkObj.layer = terrainLayer;
+        chunkObj.layer = LayerMaskToLayer(terrainLayer, "Terrain", 6);
         chunkObj.transform.SetParent(transform, false);
         chunkObj.transform.localPosition = new Vector3(
             coord.x * chunkSize * voxelSize,
@@ -301,7 +351,11 @@ public class TerrainManager : MonoBehaviour, IManager
                 worldCavernCenter,
                 cavernSize,
                 noiseFrequency,
-                terrainHeightVariation
+                terrainHeightVariation,
+                wallNoiseAmplitude,
+                wallNoiseFrequency,
+                ceilingNoiseAmplitude,
+                ceilingNoiseFrequency
             );
         }
 
@@ -313,7 +367,9 @@ public class TerrainManager : MonoBehaviour, IManager
             {
                 // check radius immediately around the excavated hole
                 float checkRadius = radius * 1.25f;
-                Collider[] hitMinerals = Physics.OverlapSphere(worldPosition, checkRadius, mineralLayerMask);
+                int minLayerIdx = LayerMaskToLayer(mineralLayer, "Mineral", 9);
+                LayerMask mineralMask = mineralLayer.value != 0 ? mineralLayer : (LayerMask)(1 << minLayerIdx);
+                Collider[] hitMinerals = Physics.OverlapSphere(worldPosition, checkRadius, mineralMask);
                 for (int i = 0; i < hitMinerals.Length; i++)
                 {
                     // Only process minerals belonging to this single targeted chunk
@@ -566,7 +622,7 @@ public class TerrainManager : MonoBehaviour, IManager
 
         GameObject obj = Instantiate(prefabToUse, finalPos, rotation, chunk.transform);
         obj.name = $"{mineral.MineralName}_{chunk.chunkCoord.x}_{chunk.chunkCoord.y}_{chunk.chunkCoord.z}";
-        obj.layer = mineralLayer;
+        obj.layer = LayerMaskToLayer(mineralLayer, "Mineral", 9);
 
         // Ensure kinematic state immediately 
         if (obj.TryGetComponent<Rigidbody>(out var rb))

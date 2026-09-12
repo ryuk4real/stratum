@@ -90,7 +90,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     }
 
     // Generates the initial density of the chunk on GPU for an underground quarry with a starting cavern
-    public void GenerateDensityGPU(ComputeShader shader, int kernelGenerateDensity, Vector3 cavernCenter, Vector3 cavernSize, float noiseFreq, float variation)
+    public void GenerateDensityGPU(ComputeShader shader, int kernelGenerateDensity, Vector3 cavernCenter, Vector3 cavernSize, float noiseFreq, float variation, float wallNoiseAmp = 1.0f, float wallNoiseFreq = 0.25f, float ceilingNoiseAmp = 1.2f, float ceilingNoiseFreq = 0.25f)
     {
         if (!isInitialized || densityBuffer == null) return;
 
@@ -103,6 +103,10 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         shader.SetVector("_CavernSize", cavernSize);
         shader.SetFloat("_NoiseFrequency", noiseFreq);
         shader.SetFloat("_TerrainHeightVariation", variation);
+        shader.SetFloat("_WallNoiseAmplitude", wallNoiseAmp);
+        shader.SetFloat("_WallNoiseFrequency", wallNoiseFreq);
+        shader.SetFloat("_CeilingNoiseAmplitude", ceilingNoiseAmp);
+        shader.SetFloat("_CeilingNoiseFrequency", ceilingNoiseFreq);
 
         int threadsPerAxis = Mathf.CeilToInt(numPointsPerAxis / 4.0f); // Each thread group has 4x4x4 threads
         shader.Dispatch(kernelGenerateDensity, threadsPerAxis, threadsPerAxis, threadsPerAxis);
@@ -137,7 +141,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     }
 
     // Executes the Marching Cubes algorithm on GPU and reconstructs the chunk mesh
-    public void Polygonise(ComputeShader shader, int kernelMC, ComputeBuffer triangleBuffer, ComputeBuffer counterBuffer, ComputeBuffer triTableBuffer, ComputeBuffer edgeTableBuffer, int maxTriangles, float isoLevel, Vector3 cavernCenter, Vector3 cavernSize, float noiseFreq = 0.03f, float variation = 2f)
+    public void Polygonise(ComputeShader shader, int kernelMC, ComputeBuffer triangleBuffer, ComputeBuffer counterBuffer, ComputeBuffer triTableBuffer, ComputeBuffer edgeTableBuffer, int maxTriangles, float isoLevel, Vector3 cavernCenter, Vector3 cavernSize, float noiseFreq = 0.03f, float variation = 2f, float wallNoiseAmp = 1.0f, float wallNoiseFreq = 0.25f, float ceilingNoiseAmp = 1.2f, float ceilingNoiseFreq = 0.25f)
     {
         if (!isInitialized || densityBuffer == null) return;
 
@@ -160,6 +164,10 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         shader.SetVector("_CavernSize", cavernSize);
         shader.SetFloat("_NoiseFrequency", noiseFreq);
         shader.SetFloat("_TerrainHeightVariation", variation);
+        shader.SetFloat("_WallNoiseAmplitude", wallNoiseAmp);
+        shader.SetFloat("_WallNoiseFrequency", wallNoiseFreq);
+        shader.SetFloat("_CeilingNoiseAmplitude", ceilingNoiseAmp);
+        shader.SetFloat("_CeilingNoiseFrequency", ceilingNoiseFreq);
 
         int threadsPerAxis = Mathf.CeilToInt(chunkSize / 4.0f);
         shader.Dispatch(kernelMC, threadsPerAxis, threadsPerAxis, threadsPerAxis);

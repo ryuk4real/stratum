@@ -24,11 +24,11 @@ StructuredBuffer<int> _TriTable;
 StructuredBuffer<int> _EdgeTable;
 
 // Uniform parameters
-int _NumPointsPerAxis;      // e.g. chunkSize + 1
+int _NumPointsPerAxis;      // chunkSize + 1
 int _MaxTriangles;          // Safety limit
 float _VoxelSize;           // World size of single voxel cell
 float3 _ChunkWorldOffset;   // World position offset for the chunk
-float _IsoLevel;            // Surface threshold (e.g. 0.0)
+float _IsoLevel;            // Surface threshold
 
 // Cavern generation parameters
 float3 _CavernCenter;          // World position center of starting cavern
@@ -36,10 +36,19 @@ float3 _CavernSize;            // Extents (width, height, depth) of starting cav
 float _NoiseFrequency;         // Frequency of 3D noise on cavern walls
 float _TerrainHeightVariation; // Wall roughness amplitude
 
+// Cavern noise parameters
+float _WallNoiseAmplitude;     // Amplitude of Perlin noise on the front wall exposed to terrain
+float _WallNoiseFrequency;     // Frequency of Perlin noise on the front wall
+float _CeilingNoiseAmplitude;  // Amplitude of Perlin noise on the cavern ceiling
+float _CeilingNoiseFrequency;  // Frequency of Perlin noise on the cavern ceiling
+
 // Modification parameters
 float3 _BrushCenter;        // Center of dig sphere in local/world coordinates
 float _BrushRadius;         // Radius of brush
 float _BrushDelta;          // Amount to add for digging
+
+// Noise phase offset for ceiling to avoid matching the front wall pattern
+static const float3 CEILING_NOISE_OFFSET = float3(37.2, 17.5, 43.1);
 
 // Corner offsets for a voxel cube
 static const int3 cornerOffsets[8] = {
@@ -81,32 +90,54 @@ float noise3D(float3 p)
     );
 }
 
-// Fractal Brownian Motion (fbm) in 3D for organic rock roughness
-float fbm3D(float3 p)
+
+// Calculates the signed distance from a box (the cavern) centered at the origin with half extents
+// Returns < 0 if the point is inside the box, > 0 if it is outside
+float GetBoxSignedDistance(float3 p, float3 halfExtents)
 {
-    float value = 0.0;
-    float amplitude = 0.5;
-    [unroll]
-    for (int i = 0; i < 3; i++)
-    {
-        value += amplitude * noise3D(p);
-        p *= 2.0;
-        amplitude *= 0.5;
-    }
-    return value;
+    float3 d = abs(p) - halfExtents;
+    float outsideDist = length(max(d, 0.0));
+    float insideDist = min(max(d.x, max(d.y, d.z)), 0.0);
+    return outsideDist + insideDist;
 }
 
+// Sample the density of the terrain at a given world position
 float SampleDensity(float3 worldPos)
 {
-    // Distance to rounded box of cavern
-    float3 halfSize = max(_CavernSize * 0.5, float3(0.5, 0.5, 0.5));
-    float3 q = abs(worldPos - _CavernCenter) - halfSize;
-    float boxDist = length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+    const float CAVERN_MARGIN = 5.0;
 
-    // 3D noise displacement for natural rough rock walls, floor, and ceiling
-    float wallNoise = (fbm3D(worldPos * _NoiseFrequency) - 0.5) * 2.0 * _TerrainHeightVariation;
+    // Local coordinates relative to the center of the cavern
+    float3 halfExtents = max(_CavernSize * 0.5, float3(0.5, 0.5, 0.5));
+    float3 localPos = worldPos - _CavernCenter;
 
-    return boxDist + wallNoise;
+    // If the point is far from the cavern, return (it's solid rock)
+    float roughBoxDist = GetBoxSignedDistance(localPos, halfExtents);
+    if (roughBoxDist > CAVERN_MARGIN)
+    {
+        return roughBoxDist + 1.0;
+    }
+
+    // Noise on the front wall (-X) and on the ceiling (+Y)
+    float frontNoise = (noise3D(worldPos * _WallNoiseFrequency) - 0.5) * 2.0 * _WallNoiseAmplitude;
+    float ceilingNoise = (noise3D((worldPos + CEILING_NOISE_OFFSET) * _CeilingNoiseFrequency) - 0.5) * 2.0 * _CeilingNoiseAmplitude;
+
+    float minX = -halfExtents.x + frontNoise; // front wall with noise
+    float maxX =  halfExtents.x; // back wall is flat
+    float minY = -halfExtents.y; // floor is flat
+    float maxY =  halfExtents.y + ceilingNoise; // ceiling with noise
+    float minZ = -halfExtents.z; // left wall is flat
+    float maxZ =  halfExtents.z; // right wall is flat
+
+    // Signed distance calculation
+    float dx = max(minX - localPos.x, localPos.x - maxX);
+    float dy = max(minY - localPos.y, localPos.y - maxY);
+    float dz = max(minZ - localPos.z, localPos.z - maxZ);
+
+    float3 d = float3(dx, dy, dz);
+    float outsideDistance = length(max(d, 0.0));
+    float insideDistance  = min(max(dx, max(dy, dz)), 0.0);
+
+    return outsideDistance + insideDistance;
 }
 
 [numthreads(4, 4, 4)]
@@ -141,30 +172,18 @@ void ModifyDensity(uint3 id : SV_DispatchThreadID)
     }
 }
 
-float3 CalculateNormal(int3 c, float3 worldPos)
+// The normal is the gradient of the isosurface
+float3 CalculateNormal(int3 c)
 {
-    if (c.x > 0 && c.x < _NumPointsPerAxis - 1 &&
-        c.y > 0 && c.y < _NumPointsPerAxis - 1 &&
-        c.z > 0 && c.z < _NumPointsPerAxis - 1)
-    {
-        float dx = _DensityBuffer[IndexFromCoord(c.x + 1, c.y, c.z, _NumPointsPerAxis)] - 
-                   _DensityBuffer[IndexFromCoord(c.x - 1, c.y, c.z, _NumPointsPerAxis)];
-        float dy = _DensityBuffer[IndexFromCoord(c.x, c.y + 1, c.z, _NumPointsPerAxis)] - 
-                   _DensityBuffer[IndexFromCoord(c.x, c.y - 1, c.z, _NumPointsPerAxis)];
-        float dz = _DensityBuffer[IndexFromCoord(c.x, c.y, c.z + 1, _NumPointsPerAxis)] - 
-                   _DensityBuffer[IndexFromCoord(c.x, c.y, c.z - 1, _NumPointsPerAxis)];
-        float3 grad = float3(dx, dy, dz);
-        float len = length(grad);
-        if (len > 0.0001)
-        {
-            return -grad / len;
-        }
-    }
+    int3 cNext = min(c + 1, _NumPointsPerAxis - 1);
+    int3 cPrev = max(c - 1, 0);
 
-    float h = max(0.001, _VoxelSize * 0.1);
-    float dx = SampleDensity(worldPos + float3(h, 0, 0)) - SampleDensity(worldPos - float3(h, 0, 0));
-    float dy = SampleDensity(worldPos + float3(0, h, 0)) - SampleDensity(worldPos - float3(0, h, 0));
-    float dz = SampleDensity(worldPos + float3(0, 0, h)) - SampleDensity(worldPos - float3(0, 0, h));
+    float dx = _DensityBuffer[IndexFromCoord(cNext.x, c.y, c.z, _NumPointsPerAxis)] - 
+               _DensityBuffer[IndexFromCoord(cPrev.x, c.y, c.z, _NumPointsPerAxis)];
+    float dy = _DensityBuffer[IndexFromCoord(c.x, cNext.y, c.z, _NumPointsPerAxis)] - 
+               _DensityBuffer[IndexFromCoord(c.x, cPrev.y, c.z, _NumPointsPerAxis)];
+    float dz = _DensityBuffer[IndexFromCoord(c.x, c.y, cNext.z, _NumPointsPerAxis)] - 
+               _DensityBuffer[IndexFromCoord(c.x, c.y, cPrev.z, _NumPointsPerAxis)];
 
     float3 grad = float3(dx, dy, dz);
     float len = length(grad);
@@ -255,8 +274,7 @@ void MarchingCubes(uint3 id : SV_DispatchThreadID)
     {
         int3 c = cellCorner + cornerOffsets[j];
         cornerPositions[j] = float3(c.x, c.y, c.z) * _VoxelSize;
-        float3 cornerWorldPos = _ChunkWorldOffset + cornerPositions[j];
-        cornerNormals[j] = CalculateNormal(c, cornerWorldPos);
+        cornerNormals[j] = CalculateNormal(c);
     }
 
     // Find vertices on intersected edges
