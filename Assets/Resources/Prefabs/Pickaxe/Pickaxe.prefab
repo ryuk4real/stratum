@@ -171,10 +171,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d1e8c74a3f2b1e09876543210fedcba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  digRadius: 1
+  digRadius: 0.6
   digStrength: 0.8
-  reachDistance: 0.45
-  sphereCastRadius: 0.12
+  reachDistance: 0.12
+  sphereCastRadius: 0.11
   minSwingSpeed: 0.8
   hitCooldown: 0.3
   requireGrabToDig: 1

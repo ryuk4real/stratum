@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Serialization;
 using Oculus.Interaction;
 using Oculus.Interaction.HandGrab;
 
@@ -10,15 +9,14 @@ using Oculus.Interaction.HandGrab;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(Collider))]
-[RequireComponent(typeof(Rigidbody), typeof(Grabbable), typeof(HandGrabInteractable))]
+[RequireComponent(typeof(Rigidbody))]
 public class MineralBehaviour : MonoBehaviour
 {
     [Header("Mineral Data")]
     [SerializeField] private Mineral mineralData;
 
     [Header("Extraction Settings")]
-
-    [Tooltip("Percentage of raycasts exposed to air required before the mineral can be grabbed by hand.")]
+    [Tooltip("Percentage of raycasts exposed to air required before the mineral can be grabbed by hand or controller.")]
     [SerializeField, Range(0.3f, 0.95f)] private float exposureThreshold = 0.75f;
 
     [Tooltip("Percentage of raycasts exposed to air at which the mineral is considered completely free from rock and falls due to gravity.")]
@@ -31,17 +29,17 @@ public class MineralBehaviour : MonoBehaviour
     [SerializeField, Range(0.02f, 0.5f)] private float raycastDistance = 0.08f;
 
     [Header("VR Haptics")]
-    [Tooltip("Trigger controller vibration when successfully extracting the mineral.")]
+    [Tooltip("Trigger controller vibration when successfully extracting or collecting the mineral.")]
     [SerializeField] private bool enableHaptics = true;
     [SerializeField, Range(0.1f, 1f)] private float hapticStrength = 0.7f;
     [SerializeField, Range(0.05f, 0.5f)] private float hapticDuration = 0.2f;
-
 
     [Header("Debug & State")]
     [SerializeField] private MineralExtractionState state = MineralExtractionState.Buried;
     [Tooltip("Ratio of exposed raycasts.")]
     [SerializeField, Range(0f, 1f)] private float exposureRatio = 0f;
     [SerializeField] private bool isAnchoredToTerrain = true;
+    [SerializeField] private bool isGrabbed = false;
     [SerializeField] private bool drawGizmos = true;
 
     // Components
@@ -50,12 +48,14 @@ public class MineralBehaviour : MonoBehaviour
     private Collider mineralCollider;
     private Rigidbody mineralRigidbody;
     private Grabbable grabbable;
+    private GrabInteractable grabInteractable;
     private HandGrabInteractable handGrabInteractable;
 
     // Raycasts
     private Vector3[] localRayDirections;
     private bool[] raycastExposed;
     private readonly RaycastHit[] raycastHits = new RaycastHit[8];
+
 
     // Public getters
     public Mineral MineralData => mineralData;
@@ -64,6 +64,10 @@ public class MineralBehaviour : MonoBehaviour
     public bool IsExtractable => state == MineralExtractionState.Extractable;
     public bool IsAnchoredToTerrain => isAnchoredToTerrain;
     public float ExposureRatio => exposureRatio;
+    public bool IsGrabbed => isGrabbed || (grabbable != null && grabbable.SelectingPointsCount > 0);
+    public bool IsHeldByController => IsGrabbed && OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, OVRInput.Controller.LTouch);
+    public bool IsHeldByHand => IsGrabbed && !IsHeldByController;
+    public bool IsCollected { get; private set; } = false;
 
     private void Awake()
     {
@@ -72,25 +76,21 @@ public class MineralBehaviour : MonoBehaviour
         mineralCollider = GetComponent<Collider>();
         mineralRigidbody = GetComponent<Rigidbody>();
         grabbable = GetComponent<Grabbable>();
+        grabInteractable = GetComponent<GrabInteractable>();
         handGrabInteractable = GetComponent<HandGrabInteractable>();
 
-        // Enforce kinematic and buried state
+        // Enforce initial buried state inside solid rock
         state = MineralExtractionState.Buried;
         isAnchoredToTerrain = true;
         mineralRigidbody.isKinematic = true;
         mineralRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         mineralRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-        grabbable.ForceKinematicDisabled = true;
+
+        // Ensure interactions are disabled while buried so it cannot be grabbed through the rock
+        SetInteractionsEnabled(false);
 
         ApplyMineralData();
         GenerateRaycastDirections();
-
-        SetInteractionEnabled(false);
-    }
-
-    private void Start()
-    {
-        
     }
 
     private void OnEnable()
@@ -109,10 +109,37 @@ public class MineralBehaviour : MonoBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (IsCollected || !IsGrabbed) return;
+
+        // Left Controller Index Trigger to collect into inventory
+        if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.LTouch))
+        {
+            CollectMineralInstance(OVRInput.Controller.LTouch);
+        }
+    }
+
+    private void SetInteractionsEnabled(bool isEnabled)
+    {
+        if (grabbable != null) grabbable.enabled = isEnabled;
+        if (grabInteractable != null) grabInteractable.enabled = isEnabled;
+        if (handGrabInteractable != null) handGrabInteractable.enabled = isEnabled;
+    }
+
     private void HandlePointerEvent(PointerEvent evt)
     {
         if (evt.Type == PointerEventType.Select)
         {
+            // Disallow grab if still buried in rock
+            if (state == MineralExtractionState.Buried)
+            {
+                return;
+            }
+
+            isGrabbed = true;
+
+            // If extractable, extract it upon first grab
             if (state == MineralExtractionState.Extractable)
             {
                 Extract();
@@ -120,79 +147,16 @@ public class MineralBehaviour : MonoBehaviour
         }
         else if (evt.Type == PointerEventType.Unselect || evt.Type == PointerEventType.Cancel)
         {
-            // When the hand releases the mineral, make it fully dynamic (non-kinematic)
-            if (state == MineralExtractionState.Extracted || !isAnchoredToTerrain)
+            isGrabbed = (grabbable != null && grabbable.SelectingPointsCount > 0);
+
+            if (!isGrabbed && state == MineralExtractionState.Extracted && mineralRigidbody != null && !IsCollected)
             {
-                if (mineralRigidbody != null) mineralRigidbody.isKinematic = false;
+                // Ensure physics takes over when dropped
+                mineralRigidbody.isKinematic = false;
             }
         }
     }
 
-    private void OnValidate()
-    {
-        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
-        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
-        if (mineralCollider == null) mineralCollider = GetComponent<Collider>();
-        if (mineralRigidbody == null) mineralRigidbody = GetComponent<Rigidbody>();
-        if (grabbable == null) grabbable = GetComponent<Grabbable>();
-        if (handGrabInteractable == null) handGrabInteractable = GetComponent<HandGrabInteractable>();
-
-        ApplyMineralData();
-        GenerateRaycastDirections();
-    }
-
-
-    public void SetMineralData(Mineral data)
-    {
-        mineralData = data;
-        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
-        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
-        ApplyMineralData();
-    }
-
-    public void ApplyMineralData()
-    {
-        if (mineralData == null) return;
-
-        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
-        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
-
-        if (meshFilter != null && mineralData.Mesh != null)
-        {
-            meshFilter.sharedMesh = mineralData.Mesh;
-        }
-
-        if (meshRenderer != null && mineralData.Material != null)
-        {
-            meshRenderer.sharedMaterial = mineralData.Material;
-        }
-    }
-
-    /// Distributes raycast directions evenly on a unit sphere using Fibonacci spiral.
-    private void GenerateRaycastDirections()
-    {
-        localRayDirections = new Vector3[raycastCount];
-        raycastExposed = new bool[raycastCount];
-
-        // Golden spiral on sphere surface
-        float goldenRatioAngle = Mathf.PI * (3f - Mathf.Sqrt(5f)); // ~2.399963 radians
-
-        for (int i = 0; i < raycastCount; i++)
-        {
-            float y = 1f - (i / (float)(raycastCount - 1)) * 2f; // from 1 down to -1
-            float radiusAtY = Mathf.Sqrt(Mathf.Max(0f, 1f - y * y));
-            float theta = goldenRatioAngle * i;
-
-            float x = Mathf.Cos(theta) * radiusAtY;
-            float z = Mathf.Sin(theta) * radiusAtY;
-
-            localRayDirections[i] = new Vector3(x, y, z);
-            raycastExposed[i] = false;
-        }
-    }
-
-    // Casts rays outward from the center against terrain to calculate current exposure.
-    // Called when the player digs near the mineral with the pickaxe.
     public void CheckExposure()
     {
         if (state == MineralExtractionState.Extracted) return;
@@ -218,7 +182,6 @@ public class MineralBehaviour : MonoBehaviour
             Vector3 rayDir = transform.TransformDirection(localRayDirections[i]);
             Vector3 samplePoint = worldCenter + rayDir * effectiveRayDistance;
 
-            // Raycast check against terrain collider (if a polygon is directly intercepted)
             int hitCount = Physics.RaycastNonAlloc(worldCenter, rayDir, raycastHits, effectiveRayDistance, ~0, QueryTriggerInteraction.Ignore);
             bool hitTerrain = false;
             for (int h = 0; h < hitCount; h++)
@@ -233,14 +196,12 @@ public class MineralBehaviour : MonoBehaviour
                 }
             }
 
-            // We check the true volumetric density at the sample point so that solid rock is never mistaken for air.
             bool isSolidTerrain = hitTerrain;
             if (!isSolidTerrain)
             {
                 isSolidTerrain = TerrainManager.Instance.IsPointInSolidTerrain(samplePoint);
             }
 
-            // Direction is exposed to air only if it is not inside solid terrain
             raycastExposed[i] = !isSolidTerrain;
             if (raycastExposed[i])
             {
@@ -249,53 +210,45 @@ public class MineralBehaviour : MonoBehaviour
         }
 
         Physics.queriesHitBackfaces = prevBackfaces;
+        exposureRatio = (float)exposedCount / raycastCount;
 
-        exposureRatio = (float) exposedCount / raycastCount;
-
-        // No raycast intercepts terrain, so mineral has fallen
+        // Mineral completely freed from rock -> fall free
         if (exposedCount == raycastCount || exposureRatio >= fullExcavationThreshold)
         {
             Extract();
 
-            // Stops being kinematic so gravity causes it to drop
-            if (mineralRigidbody != null && (grabbable == null || grabbable.SelectingPointsCount == 0))
+            if (mineralRigidbody != null && !IsGrabbed)
             {
                 mineralRigidbody.isKinematic = false;
             }
         }
-        // Sufficiently exposed to be grabbed by hand, but still anchored to rock
+        // Sufficiently exposed to be grabbed and extracted
         else if (exposureRatio >= exposureThreshold)
         {
             isAnchoredToTerrain = true;
 
-            // Remains kinematic until grasped by the player hand
-            if (mineralRigidbody != null && (grabbable == null || grabbable.SelectingPointsCount == 0))
+            if (mineralRigidbody != null && !IsGrabbed)
             {
                 mineralRigidbody.isKinematic = true;
             }
 
-            grabbable.ForceKinematicDisabled = true;
-
-            SetInteractionEnabled(true);
             SetState(MineralExtractionState.Extractable);
         }
-        else // Mostly buried in rock
+        else // Still buried inside rock
         {
             isAnchoredToTerrain = true;
 
-            if (mineralRigidbody != null)
+            if (mineralRigidbody != null && !IsGrabbed)
             {
                 mineralRigidbody.isKinematic = true;
             }
 
-            SetInteractionEnabled(false);
             SetState(MineralExtractionState.Buried);
         }
     }
 
     private void SetState(MineralExtractionState newState)
     {
-        // Once extracted, the mineral can never revert to previous states
         if (state == MineralExtractionState.Extracted && newState != MineralExtractionState.Extracted)
         {
             return;
@@ -306,26 +259,24 @@ public class MineralBehaviour : MonoBehaviour
         switch (state)
         {
             case MineralExtractionState.Buried:
-                if (mineralRigidbody != null)
-                {
-                    mineralRigidbody.isKinematic = true;
-                }
-                SetInteractionEnabled(false);
+                if (mineralRigidbody != null) mineralRigidbody.isKinematic = true;
+                // Disallow hand and controller grabs while buried
+                SetInteractionsEnabled(false);
                 break;
 
             case MineralExtractionState.Extractable:
-                // If still anchored in rock, remain kinematic; if completely dug out, drops to the ground
-                mineralRigidbody.isKinematic = isAnchoredToTerrain;
-                SetInteractionEnabled(true);
+                if (!IsGrabbed && mineralRigidbody != null) mineralRigidbody.isKinematic = isAnchoredToTerrain;
+                // Allow hands and controllers to grab and extract
+                SetInteractionsEnabled(true);
                 break;
 
             case MineralExtractionState.Extracted:
-                // Handled in Extract()
+                // Can be freely picked up from the ground by hand or controller
+                SetInteractionsEnabled(true);
                 break;
         }
     }
 
-    // Extracts the mineral when grabbed by hand
     public void Extract()
     {
         if (state == MineralExtractionState.Extracted) return;
@@ -335,34 +286,139 @@ public class MineralBehaviour : MonoBehaviour
 
         transform.SetParent(null);
 
-        grabbable.ForceKinematicDisabled = true;
-
-        // Keep grab interactions enabled
-        SetInteractionEnabled(true);
+        SetInteractionsEnabled(true);
         PlayExtractionFeedback();
     }
 
-    private void SetInteractionEnabled(bool isEnabled)
+
+    // Collects the mineral: registers it in CollectionManager, triggers haptics, plays shrink animation and destroys it
+    public void CollectMineralInstance(OVRInput.Controller hapticController = OVRInput.Controller.LTouch)
     {
-        if (grabbable != null) grabbable.enabled = isEnabled;
-        if (handGrabInteractable != null) handGrabInteractable.enabled = isEnabled;
+        if (IsCollected) return;
+        IsCollected = true;
+
+        StartCoroutine(CollectAnimationRoutine(hapticController));
     }
+
+    private IEnumerator CollectAnimationRoutine(OVRInput.Controller hapticController)
+    {
+        isGrabbed = false;
+        PrepareForCollection();
+
+        // Register in CollectionManager
+        if (CollectionManager.Instance != null && mineralData != null)
+        {
+            CollectionManager.Instance.CollectMineral(mineralData);
+        }
+
+        if (enableHaptics)
+        {
+            StartCoroutine(TriggerHapticsRoutine(hapticController));
+        }
+
+        // Shrink animation
+        Vector3 initialScale = transform.localScale;
+        float duration = 1.0f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            transform.localScale = Vector3.Lerp(initialScale, Vector3.zero, t);
+            yield return null;
+        }
+
+        transform.localScale = Vector3.zero;
+        Destroy(gameObject);
+    }
+
+    public void PrepareForCollection()
+    {
+        IsCollected = true;
+        SetInteractionsEnabled(false);
+
+        if (mineralCollider != null) mineralCollider.enabled = false;
+        if (mineralRigidbody != null)
+        {
+            mineralRigidbody.isKinematic = true;
+            mineralRigidbody.detectCollisions = false;
+        }
+    }
+
 
     private void PlayExtractionFeedback()
     {
         if (enableHaptics)
         {
-            StartCoroutine(TriggerHapticsRoutine());
+            StartCoroutine(TriggerHapticsRoutine(OVRInput.Controller.LTouch));
         }
     }
 
-    private IEnumerator TriggerHapticsRoutine()
+    private IEnumerator TriggerHapticsRoutine(OVRInput.Controller controller)
     {
-        OVRInput.SetControllerVibration(hapticStrength, hapticStrength, OVRInput.Controller.LTouch);
-
+        OVRInput.SetControllerVibration(hapticStrength, hapticStrength, controller);
         yield return new WaitForSeconds(hapticDuration);
+        OVRInput.SetControllerVibration(0f, 0f, controller);
+    }
 
-        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
+    private void OnValidate()
+    {
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
+        if (mineralCollider == null) mineralCollider = GetComponent<Collider>();
+        if (mineralRigidbody == null) mineralRigidbody = GetComponent<Rigidbody>();
+        if (grabbable == null) grabbable = GetComponent<Grabbable>();
+        if (grabInteractable == null) grabInteractable = GetComponent<GrabInteractable>();
+        if (handGrabInteractable == null) handGrabInteractable = GetComponent<HandGrabInteractable>();
+
+        ApplyMineralData();
+        GenerateRaycastDirections();
+    }
+
+    public void SetMineralData(Mineral data)
+    {
+        mineralData = data;
+        ApplyMineralData();
+    }
+
+    public void ApplyMineralData()
+    {
+        if (mineralData == null) return;
+
+        if (meshFilter == null) meshFilter = GetComponent<MeshFilter>();
+        if (meshRenderer == null) meshRenderer = GetComponent<MeshRenderer>();
+
+        if (meshFilter != null && mineralData.Mesh != null)
+        {
+            meshFilter.sharedMesh = mineralData.Mesh;
+        }
+
+        if (meshRenderer != null && mineralData.Material != null)
+        {
+            meshRenderer.sharedMaterial = mineralData.Material;
+        }
+    }
+
+    private void GenerateRaycastDirections()
+    {
+        localRayDirections = new Vector3[raycastCount];
+        raycastExposed = new bool[raycastCount];
+
+        float goldenRatioAngle = Mathf.PI * (3f - Mathf.Sqrt(5f));
+
+        for (int i = 0; i < raycastCount; i++)
+        {
+            float y = 1f - (i / (float)(raycastCount - 1)) * 2f;
+            float radiusAtY = Mathf.Sqrt(Mathf.Max(0f, 1f - y * y));
+            float theta = goldenRatioAngle * i;
+
+            float x = Mathf.Cos(theta) * radiusAtY;
+            float z = Mathf.Sin(theta) * radiusAtY;
+
+            localRayDirections[i] = new Vector3(x, y, z);
+            raycastExposed[i] = false;
+        }
     }
 
     private void OnDrawGizmosSelected()
@@ -393,3 +449,4 @@ public class MineralBehaviour : MonoBehaviour
         }
     }
 }
+

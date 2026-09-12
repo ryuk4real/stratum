@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 260468629141376163}
   - component: {fileID: 7288436182378624244}
   - component: {fileID: 2382859684344269781}
+  - component: {fileID: 5605302138360682521}
   m_Layer: 9
   m_Name: Mineral
   m_TagString: Untagged
@@ -54,13 +55,16 @@ MonoBehaviour:
   exposureThreshold: 0.75
   fullExcavationThreshold: 0.95
   raycastCount: 20
-  raycastDistance: 0.08
+  raycastDistance: 0.052
   enableHaptics: 1
   hapticStrength: 0.7
   hapticDuration: 0.2
+  collectAnimationDuration: 0.55
+  pullTowardsPlayerOnCollect: 1
   state: 0
   exposureRatio: 0.8
   isAnchoredToTerrain: 1
+  isGrabbed: 0
   drawGizmos: 1
 --- !u!33 &316894662129765323
 MeshFilter:
@@ -127,7 +131,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 913058803302260206}
   serializedVersion: 5
-  m_Mass: 1
+  m_Mass: 3
   m_LinearDamping: 0
   m_AngularDamping: 2.5
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -138,7 +142,7 @@ Rigidbody:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 256
+    m_Bits: 384
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
@@ -165,10 +169,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.0350
-  m_Height: 0.0830
+  m_Radius: 0.035
+  m_Height: 0.083
   m_Direction: 1
-  m_Center: {x: 0.0000, y: 0.0300, z: 0.0000}
+  m_Center: {x: 0, y: 0.03, z: 0}
 --- !u!114 &7288436182378624244
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -191,7 +195,7 @@ MonoBehaviour:
   _scoringModifier:
     _positionRotationWeight: 0.8
   _slippiness: 0
-  _supportedGrabTypes: 2
+  _supportedGrabTypes: 3
   _pinchGrabRules:
     _thumbRequirement: 1
     _indexRequirement: 1
@@ -201,9 +205,9 @@ MonoBehaviour:
     _unselectMode: 0
   _palmGrabRules:
     _thumbRequirement: 1
-    _indexRequirement: 2
+    _indexRequirement: 1
     _middleRequirement: 2
-    _ringRequirement: 2
+    _ringRequirement: 1
     _pinkyRequirement: 1
     _unselectMode: 0
   _movementProvider: {fileID: 0}
@@ -232,3 +236,25 @@ MonoBehaviour:
   _kinematicWhileSelected: 1
   _throwWhenUnselected: 1
   _forceKinematicDisabled: 1
+--- !u!114 &5605302138360682521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 913058803302260206}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a1bc992571301d4a9602ac95ef4c71a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Oculus.Interaction::Oculus.Interaction.GrabInteractable
+  _interactorFilters: []
+  _maxInteractors: -1
+  _maxSelectingInteractors: -1
+  _data: {fileID: 0}
+  _pointableElement: {fileID: 2382859684344269781}
+  _rigidbody: {fileID: 5127956920258144979}
+  _grabSource: {fileID: 0}
+  _useClosestPointAsGrabSource: 1
+  _releaseDistance: 0
+  _resetGrabOnGrabsUpdated: 1
