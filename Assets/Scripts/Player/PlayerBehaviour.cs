@@ -84,8 +84,6 @@ public class PlayerBehaviour : MonoBehaviour
         }
     }
 
-    public bool IsCrouched => isCrouched;
-
     public void SetCrouch(bool crouch)
     {
         isCrouched = crouch;

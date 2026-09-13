@@ -141,7 +141,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
     }
 
     // Executes the Marching Cubes algorithm on GPU and reconstructs the chunk mesh
-    public void Polygonise(ComputeShader shader, int kernelMC, ComputeBuffer triangleBuffer, ComputeBuffer counterBuffer, ComputeBuffer triTableBuffer, ComputeBuffer edgeTableBuffer, int maxTriangles, float isoLevel, Vector3 cavernCenter, Vector3 cavernSize, float noiseFreq = 0.03f, float variation = 2f, float wallNoiseAmp = 1.0f, float wallNoiseFreq = 0.25f, float ceilingNoiseAmp = 1.2f, float ceilingNoiseFreq = 0.25f)
+    public void Polygonise(ComputeShader shader, int kernelMC, ComputeBuffer triangleBuffer, ComputeBuffer counterBuffer, ComputeBuffer triTableBuffer, ComputeBuffer edgeTableBuffer, int maxTriangles, float isoLevel)
     {
         if (!isInitialized || densityBuffer == null) return;
 
@@ -160,14 +160,6 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         shader.SetFloat("_VoxelSize", voxelSize);
         shader.SetVector("_ChunkWorldOffset", worldPos);
         shader.SetFloat("_IsoLevel", isoLevel);
-        shader.SetVector("_CavernCenter", cavernCenter);
-        shader.SetVector("_CavernSize", cavernSize);
-        shader.SetFloat("_NoiseFrequency", noiseFreq);
-        shader.SetFloat("_TerrainHeightVariation", variation);
-        shader.SetFloat("_WallNoiseAmplitude", wallNoiseAmp);
-        shader.SetFloat("_WallNoiseFrequency", wallNoiseFreq);
-        shader.SetFloat("_CeilingNoiseAmplitude", ceilingNoiseAmp);
-        shader.SetFloat("_CeilingNoiseFrequency", ceilingNoiseFreq);
 
         int threadsPerAxis = Mathf.CeilToInt(chunkSize / 4.0f);
         shader.Dispatch(kernelMC, threadsPerAxis, threadsPerAxis, threadsPerAxis);
@@ -226,27 +218,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         }
     }
 
-    public void SetColliderEnabled(bool isColliderEnabled)
-    {
-        if (meshCollider != null)
-        {
-            meshCollider.enabled = isColliderEnabled;
-        }
-    }
-
-    public void SetVisibility(bool isVisible)
-    {
-        if (meshRenderer != null)
-        {
-            meshRenderer.enabled = isVisible;
-        }
-    }
-
-    public bool IsVisible => meshRenderer != null && meshRenderer.enabled;
-
-    /// <summary>
-    /// Reads the density data from GPU back into a float array.
-    /// </summary>
+    // Reads the density data from GPU back into a float array
     public float[] GetDensityData()
     {
         if (!isInitialized || densityBuffer == null) return null;
@@ -256,10 +228,8 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         return densities;
     }
 
-    /// <summary>
-    /// Collects indices of voxels in this chunk that are strictly inside solid terrain (density > threshold)
-    /// keeping a safety margin from the chunk boundaries.
-    /// </summary>
+    // Collects indices of voxels in this chunk that are strictly inside solid terrain (density > threshold)
+    // keeping a safety margin from the chunk boundaries.
     public List<Vector3Int> GetSolidVoxelIndices(float[] densities, float threshold, int margin = 2)
     {
         var result = new List<Vector3Int>();
@@ -285,9 +255,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         return result;
     }
 
-    /// <summary>
-    /// Checks if a world position is inside the solid terrain of this chunk given the density array.
-    /// </summary>
+    // Checks if a world position is inside the solid terrain of this chunk given the density array
     public bool IsPointInTerrain(Vector3 worldPos, float[] densities, float threshold)
     {
         if (densities == null) return false;
@@ -305,9 +273,7 @@ public class TerrainChunk : MonoBehaviour, IDisposable
         return densities[index] > threshold;
     }
 
-    /// <summary>
-    /// Checks if a world position is inside the solid terrain using cached density data (auto-refreshed when dirty).
-    /// </summary>
+    // Checks if a world position is inside the solid terrain
     public bool IsPointInSolidTerrain(Vector3 worldPos, float threshold)
     {
         if (isDensityCacheDirty || cachedDensities == null)

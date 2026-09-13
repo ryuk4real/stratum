@@ -7,7 +7,6 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Transform playerBody;
 
     private float xRotation = 0f;
-    private float yRotation = 0f;
 
     void Start()
     {

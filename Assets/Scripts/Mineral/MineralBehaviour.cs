@@ -57,16 +57,17 @@ public class MineralBehaviour : MonoBehaviour
     private readonly RaycastHit[] raycastHits = new RaycastHit[8];
 
 
+    [Header("Hologram Display")]
+    [Tooltip("Rotation speed in degrees per second for the mineral display rotation.")]
+    [SerializeField] private float hologramRotationSpeed = 55f;
+    private bool isRotating = false;
+
     // Public getters
     public Mineral MineralData => mineralData;
     public MineralExtractionState State => state;
-    public bool IsExtracted => state == MineralExtractionState.Extracted;
-    public bool IsExtractable => state == MineralExtractionState.Extractable;
-    public bool IsAnchoredToTerrain => isAnchoredToTerrain;
-    public float ExposureRatio => exposureRatio;
+    public bool IsDisplayOnly => state == MineralExtractionState.DisplayOnly;
     public bool IsGrabbed => isGrabbed || (grabbable != null && grabbable.SelectingPointsCount > 0);
     public bool IsHeldByController => IsGrabbed && OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, OVRInput.Controller.LTouch);
-    public bool IsHeldByHand => IsGrabbed && !IsHeldByController;
     public bool IsCollected { get; private set; } = false;
 
     private void Awake()
@@ -111,7 +112,21 @@ public class MineralBehaviour : MonoBehaviour
 
     private void Update()
     {
+        if (state == MineralExtractionState.DisplayOnly)
+        {
+            if (isRotating && IsGrabbed)
+            {
+                StopRotation();
+            }
+
+            if (isRotating)
+            {
+                transform.Rotate(Vector3.up, hologramRotationSpeed * Time.deltaTime, Space.World);
+            }
+        }
+
         if (IsCollected || !IsGrabbed) return;
+        if (state == MineralExtractionState.DisplayOnly) return;
 
         // Left Controller Index Trigger to collect into inventory
         if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.LTouch))
@@ -139,6 +154,12 @@ public class MineralBehaviour : MonoBehaviour
 
             isGrabbed = true;
 
+            // Stop hologram rotation immediately upon grab
+            if (state == MineralExtractionState.DisplayOnly)
+            {
+                StopRotation();
+            }
+
             // If extractable, extract it upon first grab
             if (state == MineralExtractionState.Extractable)
             {
@@ -149,7 +170,7 @@ public class MineralBehaviour : MonoBehaviour
         {
             isGrabbed = (grabbable != null && grabbable.SelectingPointsCount > 0);
 
-            if (!isGrabbed && state == MineralExtractionState.Extracted && mineralRigidbody != null && !IsCollected)
+            if (!isGrabbed && (state == MineralExtractionState.Extracted || state == MineralExtractionState.DisplayOnly) && mineralRigidbody != null && !IsCollected)
             {
                 // Ensure physics takes over when dropped
                 mineralRigidbody.isKinematic = false;
@@ -159,7 +180,7 @@ public class MineralBehaviour : MonoBehaviour
 
     public void CheckExposure()
     {
-        if (state == MineralExtractionState.Extracted) return;
+        if (state == MineralExtractionState.Extracted || state == MineralExtractionState.DisplayOnly) return;
 
         if (localRayDirections == null || localRayDirections.Length != raycastCount)
         {
@@ -247,9 +268,14 @@ public class MineralBehaviour : MonoBehaviour
         }
     }
 
-    private void SetState(MineralExtractionState newState)
+    public void SetState(MineralExtractionState newState)
     {
         if (state == MineralExtractionState.Extracted && newState != MineralExtractionState.Extracted)
+        {
+            return;
+        }
+
+        if (state == MineralExtractionState.DisplayOnly && newState != MineralExtractionState.DisplayOnly)
         {
             return;
         }
@@ -274,12 +300,22 @@ public class MineralBehaviour : MonoBehaviour
                 // Can be freely picked up from the ground by hand or controller
                 SetInteractionsEnabled(true);
                 break;
+
+            case MineralExtractionState.DisplayOnly:
+                SetInteractionsEnabled(true);
+                isAnchoredToTerrain = false;
+                if (mineralRigidbody != null)
+                {
+                    mineralRigidbody.isKinematic = true;
+                    mineralRigidbody.useGravity = true;
+                }
+                break;
         }
     }
 
     public void Extract()
     {
-        if (state == MineralExtractionState.Extracted) return;
+        if (state == MineralExtractionState.Extracted || state == MineralExtractionState.DisplayOnly) return;
 
         state = MineralExtractionState.Extracted;
         isAnchoredToTerrain = false;
@@ -290,11 +326,40 @@ public class MineralBehaviour : MonoBehaviour
         PlayExtractionFeedback();
     }
 
+    public void SetDisplayOnly(Mineral data = null, bool startKinematic = true, bool rotateForDisplay = true)
+    {
+        if (data != null)
+        {
+            SetMineralData(data);
+        }
 
-    // Collects the mineral: registers it in CollectionManager, triggers haptics, plays shrink animation and destroys it
+        state = MineralExtractionState.DisplayOnly;
+        isAnchoredToTerrain = false;
+        IsCollected = false;
+        isRotating = rotateForDisplay;
+
+        SetInteractionsEnabled(true);
+
+        if (mineralCollider == null) mineralCollider = GetComponent<Collider>();
+        if (mineralCollider != null) mineralCollider.enabled = true;
+
+        if (mineralRigidbody == null) mineralRigidbody = GetComponent<Rigidbody>();
+        if (mineralRigidbody != null)
+        {
+            mineralRigidbody.isKinematic = startKinematic;
+            mineralRigidbody.useGravity = true;
+        }
+    }
+
+    public void StopRotation()
+    {
+        isRotating = false;
+    }
+
+    // Collects the mineral: registers it in CollectionManager, triggers haptics and destroys it
     public void CollectMineralInstance(OVRInput.Controller hapticController = OVRInput.Controller.LTouch)
     {
-        if (IsCollected) return;
+        if (IsCollected || state == MineralExtractionState.DisplayOnly) return;
         IsCollected = true;
 
         StartCoroutine(CollectAnimationRoutine(hapticController));
@@ -311,29 +376,21 @@ public class MineralBehaviour : MonoBehaviour
             CollectionManager.Instance.CollectMineral(mineralData);
         }
 
+        // Hide mesh immediately upon collection (shrink animation removed)
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = false;
+        }
+
         if (enableHaptics)
         {
-            StartCoroutine(TriggerHapticsRoutine(hapticController));
+            yield return StartCoroutine(TriggerHapticsRoutine(hapticController));
         }
 
-        // Shrink animation
-        Vector3 initialScale = transform.localScale;
-        float duration = 1.0f;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            transform.localScale = Vector3.Lerp(initialScale, Vector3.zero, t);
-            yield return null;
-        }
-
-        transform.localScale = Vector3.zero;
         Destroy(gameObject);
     }
 
-    public void PrepareForCollection()
+    private void PrepareForCollection()
     {
         IsCollected = true;
         SetInteractionsEnabled(false);

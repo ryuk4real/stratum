@@ -54,29 +54,6 @@ public class TerrainManager : MonoBehaviour, IManager
     private Color cavernGizmoColor = Color.yellow;
     private Color terrainGizmoColor = Color.white;
 
-    private const float RADIUS_MULTIPLIER = 3.5f;
-
-    public bool CenterCavernInTerrainSetting
-    {
-        get => centerCavernInTerrain;
-        set
-        {
-            centerCavernInTerrain = value;
-            if (centerCavernInTerrain)
-            {
-                CenterCavernInTerrain();
-            }
-        }
-    }
-
-    public int ChunkSize => chunkSize;
-    public float VoxelSize => voxelSize;
-    public Vector3Int ChunkDimensions => chunkDimensions;
-    public Vector3 CavernSize => cavernSize;
-    public LayerMask TerrainLayer => terrainLayer;
-    public LayerMask MineralLayer => mineralLayer;
-    public LayerMask MineralLayerMask => mineralLayer;
-
     [Header("Cavern Wall & Ceiling Noise Settings")]
     [Tooltip("Amplitude of the Perlin noise on the wall exposed to the terrain.")]
     [SerializeField] private float wallNoiseAmplitude = 1.0f;
@@ -86,11 +63,6 @@ public class TerrainManager : MonoBehaviour, IManager
     [SerializeField] private float ceilingNoiseAmplitude = 1.2f;
     [Tooltip("Frequency of the Perlin noise on the cavern ceiling.")]
     [SerializeField] private float ceilingNoiseFrequency = 0.25f;
-
-    public float WallNoiseAmplitude => wallNoiseAmplitude;
-    public float WallNoiseFrequency => wallNoiseFrequency;
-    public float CeilingNoiseAmplitude => ceilingNoiseAmplitude;
-    public float CeilingNoiseFrequency => ceilingNoiseFrequency;
 
     [Header("Rock & Wall Noise Settings")]
     [SerializeField] private float isoLevel = 0.0f;
@@ -108,16 +80,20 @@ public class TerrainManager : MonoBehaviour, IManager
 
     // Data structures to store the chunks and buffers
     private readonly Dictionary<Vector3Int, TerrainChunk> chunks = new Dictionary<Vector3Int, TerrainChunk>();
+    // Compute Buffers & Kernel IDs
     private ComputeBuffer triangleBuffer;
     private ComputeBuffer counterBuffer;
     private ComputeBuffer triTableBuffer;
     private ComputeBuffer edgeTableBuffer;
     private int maxTrianglesPerChunk;
 
-    // Kernel IDs
     private int kernelGenerateDensity;
     private int kernelMarchingCubes;
     private int kernelModifyDensity;
+
+    private readonly Dictionary<string, GameObject> mineralPrefabCache = new Dictionary<string, GameObject>();
+    private int cachedMinRarity = 1;
+    private int cachedMaxRarity = 8;
 
     private bool isInitialized = false;
 
@@ -165,6 +141,8 @@ public class TerrainManager : MonoBehaviour, IManager
     // Initialize the manager, allocate GPU buffers and generate all chunks in memory
     public void Initialize()
     {
+        if (isInitialized) return;
+
         if (terrainMaterial != null)
         {
             float totalHeight = chunkDimensions.y * chunkSize * voxelSize;
@@ -200,6 +178,7 @@ public class TerrainManager : MonoBehaviour, IManager
         triTableBuffer = new ComputeBuffer(4096, sizeof(int));
         triTableBuffer.SetData(MarchingCubesTables.TriangulationTable);
 
+        UpdateRarityRange();
         GenerateAllChunks();
         isInitialized = true;
         Debug.Log($"[TerrainManager] Successfully initialized. Generated {chunks.Count} chunks.");
@@ -207,6 +186,32 @@ public class TerrainManager : MonoBehaviour, IManager
         if (generateMinerals)
         {
             TrackPlayerChunk();
+        }
+    }
+
+    private void UpdateRarityRange()
+    {
+        if (availableMinerals == null || availableMinerals.Length == 0)
+        {
+            availableMinerals = Resources.LoadAll<Mineral>("Minerals");
+        }
+
+        if (availableMinerals != null && availableMinerals.Length > 0)
+        {
+            cachedMinRarity = int.MaxValue;
+            cachedMaxRarity = int.MinValue;
+            for (int i = 0; i < availableMinerals.Length; i++)
+            {
+                if (availableMinerals[i] == null) continue;
+                int r = (int)availableMinerals[i].Rarity;
+                if (r < cachedMinRarity) cachedMinRarity = r;
+                if (r > cachedMaxRarity) cachedMaxRarity = r;
+            }
+            if (cachedMinRarity > cachedMaxRarity)
+            {
+                cachedMinRarity = 1;
+                cachedMaxRarity = 8;
+            }
         }
     }
 
@@ -245,9 +250,7 @@ public class TerrainManager : MonoBehaviour, IManager
             );
         }
 
-        // Perform Marching Cubes only for chunks that intersect the starting cavern!
-        // At startup, any chunk outside the cavern bounds is 100% solid rock with 0 triangles.
-        // Skipping ~4,500 empty Marching Cubes dispatches and synchronous GPU GetData stalls avoids startup freezes!
+        // Perform Marching Cubes only for chunks that intersect the starting cavern
         float maxMargin = Mathf.Max(wallNoiseAmplitude, ceilingNoiseAmplitude) + terrainHeightVariation + 3f;
         Bounds cavernBounds = new Bounds(worldCavernCenter, cavernSize + Vector3.one * (maxMargin * 2f));
 
@@ -263,15 +266,7 @@ public class TerrainManager : MonoBehaviour, IManager
                     triTableBuffer,
                     edgeTableBuffer,
                     maxTrianglesPerChunk,
-                    isoLevel,
-                    worldCavernCenter,
-                    cavernSize,
-                    noiseFrequency,
-                    terrainHeightVariation,
-                    wallNoiseAmplitude,
-                    wallNoiseFrequency,
-                    ceilingNoiseAmplitude,
-                    ceilingNoiseFrequency
+                    isoLevel
                 );
             }
         }
@@ -316,25 +311,39 @@ public class TerrainManager : MonoBehaviour, IManager
     // Modifies the terrain at a given world position
     public void ModifyTerrain(Vector3 worldPosition, float radius, float strength)
     {
-        if (!isInitialized) return;
-
-        // Terrain can only be eroded (negative delta)
-        if (strength <= 0f) return;
+        if (!isInitialized || strength <= 0f) return;
         float delta = -strength;
+
+        // Calculate chunk bounding box intersecting the spherical dig area
+        float chunkWorldSpan = chunkSize * voxelSize;
+        Vector3 minPos = (worldPosition - Vector3.one * radius) - transform.position;
+        Vector3 maxPos = (worldPosition + Vector3.one * radius) - transform.position;
+
+        int minX = Mathf.Clamp(Mathf.FloorToInt(minPos.x / chunkWorldSpan), 0, chunkDimensions.x - 1);
+        int maxX = Mathf.Clamp(Mathf.FloorToInt(maxPos.x / chunkWorldSpan), 0, chunkDimensions.x - 1);
+        int minY = Mathf.Clamp(Mathf.FloorToInt(minPos.y / chunkWorldSpan), 0, chunkDimensions.y - 1);
+        int maxY = Mathf.Clamp(Mathf.FloorToInt(maxPos.y / chunkWorldSpan), 0, chunkDimensions.y - 1);
+        int minZ = Mathf.Clamp(Mathf.FloorToInt(minPos.z / chunkWorldSpan), 0, chunkDimensions.z - 1);
+        int maxZ = Mathf.Clamp(Mathf.FloorToInt(maxPos.z / chunkWorldSpan), 0, chunkDimensions.z - 1);
 
         List<TerrainChunk> affectedChunks = new List<TerrainChunk>();
 
-        // Find all chunks affected by the digging area
-        foreach (var chunk in chunks.Values)
+        for (int x = minX; x <= maxX; x++)
         {
-            bool modified = chunk.ModifyDensity(worldPosition, radius, delta, marchingCubesShader, kernelModifyDensity);
-            if (modified)
+            for (int y = minY; y <= maxY; y++)
             {
-                affectedChunks.Add(chunk);
+                for (int z = minZ; z <= maxZ; z++)
+                {
+                    if (chunks.TryGetValue(new Vector3Int(x, y, z), out TerrainChunk chunk))
+                    {
+                        if (chunk.ModifyDensity(worldPosition, radius, delta, marchingCubesShader, kernelModifyDensity))
+                        {
+                            affectedChunks.Add(chunk);
+                        }
+                    }
+                }
             }
         }
-
-        Vector3 worldCavernCenter = GetWorldCavernCenter();
 
         // Regenerate mesh for all affected chunks
         foreach (var chunk in affectedChunks)
@@ -347,15 +356,7 @@ public class TerrainManager : MonoBehaviour, IManager
                 triTableBuffer,
                 edgeTableBuffer,
                 maxTrianglesPerChunk,
-                isoLevel,
-                worldCavernCenter,
-                cavernSize,
-                noiseFrequency,
-                terrainHeightVariation,
-                wallNoiseAmplitude,
-                wallNoiseFrequency,
-                ceilingNoiseAmplitude,
-                ceilingNoiseFrequency
+                isoLevel
             );
         }
 
@@ -473,17 +474,6 @@ public class TerrainManager : MonoBehaviour, IManager
         float maxDist = GetMaxTerrainDistance(cavernCenterWorld);
         float normalizedDist = Mathf.Clamp01(distFromSpawn / Mathf.Max(1f, maxDist));
 
-        int minRarity = int.MaxValue;
-        int maxRarity = int.MinValue;
-        for (int i = 0; i < availableMinerals.Length; i++)
-        {
-            if (availableMinerals[i] == null) continue;
-            int r = (int)availableMinerals[i].Rarity;
-            if (r < minRarity) minRarity = r;
-            if (r > maxRarity) maxRarity = r;
-        }
-        if (minRarity > maxRarity) { minRarity = 1; maxRarity = 8; }
-
         int depositCount = UnityEngine.Random.Range(mineralDepositsPerChunk.x, mineralDepositsPerChunk.y + 1);
 
         for (int d = 0; d < depositCount; d++)
@@ -491,7 +481,7 @@ public class TerrainManager : MonoBehaviour, IManager
             if (solidVoxels.Count == 0) break;
 
             // Pick mineral based on rarity vs distance from spawn
-            Mineral selectedMineral = SelectMineralForDistance(normalizedDist, minRarity, maxRarity);
+            Mineral selectedMineral = SelectMineralForDistance(normalizedDist, cachedMinRarity, cachedMaxRarity);
             if (selectedMineral == null) continue;
 
             // Determine if vein or single
@@ -605,8 +595,16 @@ public class TerrainManager : MonoBehaviour, IManager
 
     private void SpawnMineralInstance(TerrainChunk chunk, Mineral mineral, Vector3 worldPos)
     {
-        // Attempt to load the specific mineral prefab
-        GameObject prefabToUse = Resources.Load<GameObject>($"Prefabs/Mineral/{mineral.MineralName}");
+        if (mineral == null) return;
+
+        if (!mineralPrefabCache.TryGetValue(mineral.MineralName, out GameObject prefabToUse))
+        {
+            prefabToUse = Resources.Load<GameObject>($"Prefabs/Mineral/{mineral.MineralName}");
+            if (prefabToUse != null)
+            {
+                mineralPrefabCache[mineral.MineralName] = prefabToUse;
+            }
+        }
 
         if (prefabToUse == null) return;
 
@@ -717,6 +715,7 @@ public class TerrainManager : MonoBehaviour, IManager
             edgeTableBuffer = null;
         }
 
+        mineralPrefabCache.Clear();
         isInitialized = false;
     }
 
@@ -747,11 +746,6 @@ public class TerrainManager : MonoBehaviour, IManager
         );
         cavernCenter = totalSize * 0.5f;
         cavernCenterIsRelative = true;
-    }
-
-    public void CenterCavernInVolume()
-    {
-        CenterCavernInTerrain();
     }
 
     // Draw gizmos in the Scene view

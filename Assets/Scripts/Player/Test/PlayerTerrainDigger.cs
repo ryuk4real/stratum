@@ -110,11 +110,4 @@ public class PlayerTerrainDigger : MonoBehaviour
         }
         return false;
     }
-
-    // Method to dig at a specific point
-    public void DigAtPoint(Vector3 worldPoint, float radius, float strength)
-    {
-        if (IsDigNearNonDiggable(worldPoint, radius)) return;
-        TerrainManager.Instance.ModifyTerrain(worldPoint, radius, strength);
-    }
 }

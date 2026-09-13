@@ -47,7 +47,7 @@ Material:
     - _StrataHardness: 0.55
     - _StrataIntensity: 1.15
     - _StrataWarpFrequency: 0.08
-    - _StrataWarpStrength: 0.8
+    - _StrataWarpStrength: 2.8
     - _SurfaceBaseHeight: 295
     - _TerrainHeightVariation: 2
     - _TriplanarSharpness: 4

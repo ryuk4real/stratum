@@ -14,7 +14,7 @@ Shader "Stratum/ProceduralTerrainTriplanar"
         [Header(Strata and Sediments Simulation)]
         _StrataFrequency ("Strata Frequency (Lower = Thicker Bands)", Float) = 0.08
         _StrataWarpFrequency ("Strata Warp Frequency", Float) = 0.08
-        _StrataWarpStrength ("Strata Warp Strength", Float) = 0.8
+        _StrataWarpStrength ("Strata Warp Strength", Float) = 2.8
         _StrataHardness ("Strata Layer Edge Sharpness", Range(0.01, 0.99)) = 0.55
         _StrataIntensity ("Strata Intensity (Interior)", Range(0, 2)) = 1.15
         _MicroStrataStrength ("Micro-Sediment Detail", Range(0, 1)) = 0.05
@@ -248,9 +248,14 @@ Shader "Stratum/ProceduralTerrainTriplanar"
                 // Sediments (distributed according to depth below reference ceiling)
                 float rockDepth = max(0.0, depthBelowSurface);
 
-                // Natural organic wave distortion
-                float warp = (sin(worldPos.x * _StrataWarpFrequency + worldPos.z * _StrataWarpFrequency * 0.73) * 0.5
-                            + cos(worldPos.x * _StrataWarpFrequency * 0.47 - worldPos.z * _StrataWarpFrequency * 1.19) * 0.5) * _StrataWarpStrength;
+                // Natural organic undulating strata distortion (geological fold waves + noise)
+                float freq = _StrataWarpFrequency;
+                float wave1 = sin(worldPos.x * freq + worldPos.z * (freq * 0.68));
+                float wave2 = cos(worldPos.z * (freq * 0.82) - worldPos.x * (freq * 0.45));
+                float wave3 = sin((worldPos.x * 0.5 + worldPos.z * 0.5) * freq);
+                float organicNoise = (noise2D(worldPos.xz * (freq * 0.75)) - 0.5) * 2.0;
+
+                float warp = (wave1 * 0.45 + wave2 * 0.35 + wave3 * 0.2 + organicNoise * 0.35) * _StrataWarpStrength;
 
                 float strataVal = frac((rockDepth + warp) * _StrataFrequency);
                 if (strataVal < 0.0) strataVal += 1.0;
