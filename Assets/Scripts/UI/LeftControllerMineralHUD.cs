@@ -1,9 +1,9 @@
 using TMPro;
 using UnityEngine;
 
-
 /// <summary>
-/// Displays a World Space HUD on top of the player's left VR controller
+/// Displays a World Space HUD on top of the player's left VR controller.
+/// Automatically hides when a mineral is grabbed, and reactivates upon release.
 /// </summary>
 [DisallowMultipleComponent]
 public class LeftControllerMineralHUD : MonoBehaviour
@@ -18,54 +18,112 @@ public class LeftControllerMineralHUD : MonoBehaviour
     [SerializeField] private string unknownText = "Unknown";
     [SerializeField] private string idleText = "...";
     [SerializeField] private string sublabelIdle = "SCANNER READY";
-    [SerializeField] private string sublabelHeld = "[TRIGGER] COLLECT";
     [SerializeField] private string sublabelDiscovered = "IDENTIFIED";
     [SerializeField] private string sublabelUndiscovered = "UNANALYZED SAMPLE";
+    [SerializeField] private string sublabelCollected = "COLLECTED";
+    [SerializeField] private float collectedDisplayDuration = 2.0f;
 
     [Header("Colors")]
     [SerializeField] private Color discoveredColor = new Color(0.2f, 0.95f, 0.85f, 1f);
     [SerializeField] private Color unknownColor = new Color(1f, 0.75f, 0.25f, 1f);
     [SerializeField] private Color idleColor = new Color(0.6f, 0.7f, 0.8f, 0.5f);
+    [SerializeField] private Color collectedColor = new Color(0.2f, 0.95f, 0.85f, 1f);
 
     [Header("UI References")]
     [SerializeField] private CanvasGroup canvasGroup;
     [SerializeField] private TMP_Text mineralNameText;
     [SerializeField] private TMP_Text statusSubText;
 
+    private Canvas hudCanvas;
+    private OVROverlayCanvas ovrOverlayCanvas;
+    private bool isCanvasVisible = true;
+
     // Runtime state
     private readonly Collider[] overlapHits = new Collider[16];
     private MineralBehaviour currentTargetMineral;
+    private string collectedMineralName = "";
+    private float collectedUntilTime = 0f;
 
+    private void Awake()
+    {
+        if (hudCanvas == null)
+        {
+            hudCanvas = GetComponent<Canvas>();
+        }
+
+        if (canvasGroup == null)
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+        }
+
+        ovrOverlayCanvas = GetComponent<OVROverlayCanvas>();
+    }
+
+    private void OnEnable()
+    {
+        CollectionManager.OnAnyMineralCollected += HandleMineralCollected;
+    }
+
+    private void OnDisable()
+    {
+        CollectionManager.OnAnyMineralCollected -= HandleMineralCollected;
+    }
+
+    private void HandleMineralCollected(Mineral mineral)
+    {
+        if (mineral == null) return;
+        collectedMineralName = mineral.MineralName;
+        collectedUntilTime = Time.time + collectedDisplayDuration;
+    }
 
     private void LateUpdate()
     {
-        UpdateMineralTarget();
-        UpdateDisplay();
+        // Hide scanner canvas while grabbing a mineral and reactivate when released
+        if (MineralBehaviour.IsAnyMineralGrabbed)
+        {
+            SetCanvasVisible(false);
+            return;
+        }
+
+        SetCanvasVisible(true);
+
+        if (Time.time < collectedUntilTime)
+        {
+            DisplayCollected();
+        }
+        else
+        {
+            UpdateMineralTarget();
+            UpdateDisplay();
+        }
+    }
+
+    private void SetCanvasVisible(bool visible)
+    {
+        if (isCanvasVisible == visible) return;
+        isCanvasVisible = visible;
+
+        if (hudCanvas != null)
+        {
+            hudCanvas.enabled = visible;
+        }
+
+        if (ovrOverlayCanvas != null)
+        {
+            ovrOverlayCanvas.enabled = visible;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = visible ? 0.45f : 0f;
+        }
     }
 
     private void UpdateMineralTarget()
     {
         currentTargetMineral = null;
 
-        // mineral held by the player / left hand
-        MineralBehaviour[] activeMinerals = FindObjectsByType<MineralBehaviour>();
-        for (int i = 0; i < activeMinerals.Length; i++)
-        {
-            MineralBehaviour mb = activeMinerals[i];
-            if (mb == null || mb.IsCollected || mb.IsDisplayOnly) continue;
-
-            if (mb.IsGrabbed)
-            {
-                float dist = Vector3.Distance(transform.position, mb.transform.position);
-                if (dist <= 0.6f || mb.IsHeldByController)
-                {
-                    currentTargetMineral = mb;
-                    return;
-                }
-            }
-        }
-
-        // proximity scan for exposed or extracted mineral near left hand
+        // Proximity scan for exposed or extracted mineral near left hand
         Vector3 scanOrigin = transform.position;
         int count = Physics.OverlapSphereNonAlloc(scanOrigin, proximityDetectionRadius, overlapHits, mineralLayerMask);
 
@@ -98,7 +156,6 @@ public class LeftControllerMineralHUD : MonoBehaviour
         {
             Mineral data = currentTargetMineral.MineralData;
             bool isDiscovered = CollectionManager.Instance != null && CollectionManager.Instance.IsDiscovered(data.Id);
-            bool isHeld = currentTargetMineral.IsGrabbed;
 
             if (isDiscovered)
             {
@@ -106,7 +163,7 @@ public class LeftControllerMineralHUD : MonoBehaviour
                 mineralNameText.color = discoveredColor;
                 if (statusSubText != null)
                 {
-                    statusSubText.text = isHeld ? sublabelHeld : sublabelDiscovered;
+                    statusSubText.text = sublabelDiscovered;
                     statusSubText.color = discoveredColor;
                 }
             }
@@ -116,7 +173,7 @@ public class LeftControllerMineralHUD : MonoBehaviour
                 mineralNameText.color = unknownColor;
                 if (statusSubText != null)
                 {
-                    statusSubText.text = isHeld ? sublabelHeld : sublabelUndiscovered;
+                    statusSubText.text = sublabelUndiscovered;
                     statusSubText.color = unknownColor;
                 }
             }
@@ -141,6 +198,25 @@ public class LeftControllerMineralHUD : MonoBehaviour
             {
                 canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, 0.45f, Time.deltaTime * 3f);
             }
+        }
+    }
+
+    private void DisplayCollected()
+    {
+        if (mineralNameText == null) return;
+
+        mineralNameText.text = string.IsNullOrEmpty(collectedMineralName) ? idleText : collectedMineralName;
+        mineralNameText.color = collectedColor;
+
+        if (statusSubText != null)
+        {
+            statusSubText.text = sublabelCollected;
+            statusSubText.color = collectedColor;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, 1f, Time.deltaTime * 6f);
         }
     }
 }

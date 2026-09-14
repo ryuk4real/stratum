@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Oculus.Interaction;
@@ -45,6 +44,15 @@ public class PickaxeController : MonoBehaviour
     [Tooltip("Grabbable component used to verify if the tool is currently held.")]
     [SerializeField] private Grabbable grabbable;
 
+    [Header("Audio")]
+    [Tooltip("Audio source on the pickaxe used to play the hit sound.")]
+    [SerializeField] private AudioSource audioSource;
+
+    [Tooltip("Audio clip played when pickaxe hits the terrain.")]
+    [SerializeField] private AudioClip hitSound;
+
+    [Tooltip("Volume of the pickaxe hit sound.")]
+    [SerializeField, Range(0f, 1f)] private float hitSoundVolume = 0.9f;
 
     [Header("Gizmos")]
     [Tooltip("Draw reach and collision gizmos in the Scene view.")]
@@ -69,6 +77,11 @@ public class PickaxeController : MonoBehaviour
     private void Awake()
     {
         pickaxeRigidbody = GetComponent<Rigidbody>();
+
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+        }
 
         // Cache all own colliders to prevent collisions with player
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
@@ -199,7 +212,7 @@ public class PickaxeController : MonoBehaviour
         return true;
     }
 
-    /// Checks for terrain collisions along the active swing trajectory for the two tips
+    // Checks for terrain collisions along the active swing trajectory for the two tips
     private void CheckTerrainSweeps()
     {
         for (int i = 0; i < activeTips.Count; i++)
@@ -225,7 +238,7 @@ public class PickaxeController : MonoBehaviour
                     // Must be striking into the terrain surface
                     if (Vector3.Dot(swingDir, -hit.normal) > 0.2f)
                     {
-                        ExecuteDig(hit.point);
+                        ExecuteDig(hit.point, hit.normal);
                         return;
                     }
                 }
@@ -233,7 +246,7 @@ public class PickaxeController : MonoBehaviour
         }
     }
 
-    private void ExecuteDig(Vector3 worldPoint)
+    private void ExecuteDig(Vector3 worldPoint, Vector3 normal)
     {
         if (IsDigNearNonDiggable(worldPoint, digRadius))
         {
@@ -242,6 +255,16 @@ public class PickaxeController : MonoBehaviour
 
         TerrainManager.Instance.ModifyTerrain(worldPoint, digRadius, digStrength);
         nextAllowedHitTime = Time.time + hitCooldown;
+
+        PlayHitAudio();
+    }
+
+    private void PlayHitAudio()
+    {
+        if (audioSource != null && hitSound != null)
+        {
+            audioSource.PlayOneShot(hitSound, hitSoundVolume);
+        }
     }
 
     private bool IsDigNearNonDiggable(Vector3 point, float radius)

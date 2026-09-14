@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using Oculus.Interaction;
 using Oculus.Interaction.HandGrab;
@@ -9,7 +10,7 @@ using Oculus.Interaction.HandGrab;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(Collider))]
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(Rigidbody), typeof(AudioSource))]
 public class MineralBehaviour : MonoBehaviour
 {
     [Header("Mineral Data")]
@@ -33,6 +34,19 @@ public class MineralBehaviour : MonoBehaviour
     [SerializeField] private bool enableHaptics = true;
     [SerializeField, Range(0.1f, 1f)] private float hapticStrength = 0.7f;
     [SerializeField, Range(0.05f, 0.5f)] private float hapticDuration = 0.2f;
+
+    [Header("Collision Audio")]
+    [Tooltip("Audio source on the mineral used to play collision sounds.")]
+    [SerializeField] private AudioSource audioSource;
+    [Tooltip("Audio clip played when extracted mineral collides with surfaces during falling.")]
+    [SerializeField] private AudioClip collisionSound;
+    [Tooltip("Minimum collision velocity required to trigger the collision sound.")]
+    [SerializeField, Range(0.1f, 5f)] private float minCollisionVelocity = 0.4f;
+    [Tooltip("Base volume for the collision sound.")]
+    [SerializeField, Range(0.1f, 1f)] private float collisionSoundVolume = 0.8f;
+    [Tooltip("Minimum time between consecutive collision sounds to prevent spamming.")]
+    [SerializeField, Range(0.05f, 0.5f)] private float collisionSoundCooldown = 0.12f;
+    private float lastCollisionSoundTime = 0f;
 
     [Header("Debug & State")]
     [SerializeField] private MineralExtractionState state = MineralExtractionState.Buried;
@@ -66,9 +80,22 @@ public class MineralBehaviour : MonoBehaviour
     public Mineral MineralData => mineralData;
     public MineralExtractionState State => state;
     public bool IsDisplayOnly => state == MineralExtractionState.DisplayOnly;
-    public bool IsGrabbed => isGrabbed || (grabbable != null && grabbable.SelectingPointsCount > 0);
-    public bool IsHeldByController => IsGrabbed && OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, OVRInput.Controller.LTouch);
+    public bool IsGrabbed => !IsCollected && (isGrabbed || (grabbable != null && grabbable.SelectingPointsCount > 0));
     public bool IsCollected { get; private set; } = false;
+
+    // Static registry of currently grabbed minerals
+    private static readonly HashSet<MineralBehaviour> grabbedMinerals = new HashSet<MineralBehaviour>();
+
+    // Returns true if any mineral is currently being grabbed by the player.
+    public static bool IsAnyMineralGrabbed
+    {
+        get
+        {
+            if (grabbedMinerals.Count == 0) return false;
+            grabbedMinerals.RemoveWhere(m => m == null || !m.IsGrabbed);
+            return grabbedMinerals.Count > 0;
+        }
+    }
 
     private void Awake()
     {
@@ -79,6 +106,7 @@ public class MineralBehaviour : MonoBehaviour
         grabbable = GetComponent<Grabbable>();
         grabInteractable = GetComponent<GrabInteractable>();
         handGrabInteractable = GetComponent<HandGrabInteractable>();
+        audioSource = GetComponent<AudioSource>();
 
         // Enforce initial buried state inside solid rock
         state = MineralExtractionState.Buried;
@@ -108,6 +136,9 @@ public class MineralBehaviour : MonoBehaviour
         {
             grabbable.WhenPointerEventRaised -= HandlePointerEvent;
         }
+
+        isGrabbed = false;
+        grabbedMinerals.Remove(this);
     }
 
     private void Update()
@@ -153,6 +184,7 @@ public class MineralBehaviour : MonoBehaviour
             }
 
             isGrabbed = true;
+            grabbedMinerals.Add(this);
 
             // Stop hologram rotation immediately upon grab
             if (state == MineralExtractionState.DisplayOnly)
@@ -170,10 +202,15 @@ public class MineralBehaviour : MonoBehaviour
         {
             isGrabbed = (grabbable != null && grabbable.SelectingPointsCount > 0);
 
-            if (!isGrabbed && (state == MineralExtractionState.Extracted || state == MineralExtractionState.DisplayOnly) && mineralRigidbody != null && !IsCollected)
+            if (!isGrabbed)
             {
-                // Ensure physics takes over when dropped
-                mineralRigidbody.isKinematic = false;
+                grabbedMinerals.Remove(this);
+
+                if ((state == MineralExtractionState.Extracted || state == MineralExtractionState.DisplayOnly) && mineralRigidbody != null && !IsCollected)
+                {
+                    // Ensure physics takes over when dropped
+                    mineralRigidbody.isKinematic = false;
+                }
             }
         }
     }
@@ -375,6 +412,10 @@ public class MineralBehaviour : MonoBehaviour
         {
             CollectionManager.Instance.CollectMineral(mineralData);
         }
+        else if (mineralData != null)
+        {
+            CollectionManager.TriggerMineralCollected(mineralData);
+        }
 
         // Hide mesh immediately upon collection (shrink animation removed)
         if (meshRenderer != null)
@@ -393,6 +434,8 @@ public class MineralBehaviour : MonoBehaviour
     private void PrepareForCollection()
     {
         IsCollected = true;
+        isGrabbed = false;
+        grabbedMinerals.Remove(this);
         SetInteractionsEnabled(false);
 
         if (mineralCollider != null) mineralCollider.enabled = false;
@@ -503,6 +546,24 @@ public class MineralBehaviour : MonoBehaviour
 
             Gizmos.color = exposed ? Color.green : Color.red;
             Gizmos.DrawRay(worldCenter, rayDir * effectiveRayDistance);
+        }
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        // Play collision sound only when extracted, not collected, and not held by hand/controller
+        if (state != MineralExtractionState.Extracted || IsCollected || IsGrabbed) return;
+
+        float impactSpeed = collision.relativeVelocity.magnitude;
+        if (impactSpeed < minCollisionVelocity) return;
+
+        if (Time.time < lastCollisionSoundTime + collisionSoundCooldown) return;
+        lastCollisionSoundTime = Time.time;
+
+        if (audioSource != null && collisionSound != null)
+        {
+            float volume = Mathf.Clamp(collisionSoundVolume * (impactSpeed / 3.0f), 0.25f, 1.0f);
+            audioSource.PlayOneShot(collisionSound, volume);
         }
     }
 }

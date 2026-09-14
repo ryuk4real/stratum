@@ -4,9 +4,7 @@ using UnityEngine;
 namespace Stratum.UI
 {
     /// <summary>
-    /// VR Splash Screen displayed at startup.
-    /// Handles fade-in, hold, and fade-out sequences for the front splash screen panel.
-    /// Directly parented to the VR camera (CenterEyeAnchor).
+    /// VR Splash Screen displayed at startup
     /// </summary>
     [DisallowMultipleComponent]
     public class VRSplashScreen : MonoBehaviour

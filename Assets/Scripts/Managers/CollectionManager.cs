@@ -32,6 +32,13 @@ public class CollectionManager : MonoBehaviour, IManager
 
     // Events
     public event Action OnCollectionChanged;
+    public event Action<Mineral> OnMineralCollected;
+    public static event Action<Mineral> OnAnyMineralCollected;
+
+    public static void TriggerMineralCollected(Mineral mineral)
+    {
+        OnAnyMineralCollected?.Invoke(mineral);
+    }
 
     public int TotalMineralsCount
     {
@@ -192,6 +199,8 @@ public class CollectionManager : MonoBehaviour, IManager
             Debug.Log($"[CollectionManager] NEW MINERAL DISCOVERED: {mineral.MineralName} (ID: {mineral.Id})");
         }
 
+        OnMineralCollected?.Invoke(mineral);
+        OnAnyMineralCollected?.Invoke(mineral);
         OnCollectionChanged?.Invoke();
         return true;
     }
