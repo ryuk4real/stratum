@@ -76,10 +76,11 @@ Stationed inside a subterranean research laboratory outpost, players wield a phy
 
 ## Credits & Third-Party Assets
 
-- **Laboratory & Office Prefabs**: [Free Sci-Fi Office Pack](https://assetstore.unity.com/packages/3d/environments/sci-fi/free-sci-fi-office-pack-195067) by Crebot
+- **Laboratory & Office Prefabs**: [Free Sci-Fi Office Pack](https://assetstore.unity.com/packages/3d/environments/sci-fi/free-sci-fi-office-pack-195067) by Terresquall
 - **3D Mineral Models & Descriptions**: [EDUROCK - Aalto University](https://sketchfab.com/EDUROCK_AALTO/collections/minerals-65ee2970da65445eb55590005c3727ea) on Sketchfab
-- **Terrain Textures**: [Realistic Terrain Textures Free](https://assetstore.unity.com/packages/2d/textures-materials/floors/realistic-terrain-textures-free-279940) by Hedgehog Team
-- **Pickaxe Model**: [Basic Pickaxe](https://assetstore.unity.com/packages/3d/props/tools/basic-pickaxe-33718) by Starlight Arts
+- **Terrain Textures**: [Realistic Terrain Textures Free](https://assetstore.unity.com/packages/2d/textures-materials/floors/realistic-terrain-textures-free-279940) by Objective Environment
+- **Pickaxe Model**: [Basic Pickaxe](https://assetstore.unity.com/packages/3d/props/tools/basic-pickaxe-33718) by REAL DEDICATED
+
 
 ---
 
