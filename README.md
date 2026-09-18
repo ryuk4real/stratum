@@ -8,7 +8,7 @@
 
 **Stratum** is an immersive Virtual Reality geological excavation and mineral exploration simulation developed for **Meta Quest** headsets using **Unity 6 (URP)**.
 
-> Developed as part of the **Augmented Reality & Metaverse** course (Academic Year 2025/2026).
+> Developed as part of the **Augmented Reality & Metaverse** course @ University of Calabria (Academic Year 2025/2026).
 
 Stationed inside a subterranean research laboratory outpost, players wield a physics-driven pickaxe to carve through dynamically deformable volumetric terrain. Uncover 17 authentic geological mineral specimens buried in procedural veins, physically extract them as they are exposed to the cavern air, and catalog your discoveries in an interactive holographic laboratory terminal.
 
