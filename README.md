@@ -12,7 +12,7 @@
 
 Stationed inside a subterranean research laboratory outpost, players wield a physics-driven pickaxe to carve through dynamically deformable volumetric terrain. Uncover 17 authentic geological mineral specimens buried in procedural veins, physically extract them as they are exposed to the cavern air, and catalog your discoveries in an interactive holographic laboratory terminal.
 
-<video src="stratum.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/27217c37-2ec9-4e43-ae97-e2a8e5fa1f0e
 
 ---
 
