@@ -157,9 +157,9 @@ public class MineralBehaviour : MonoBehaviour
         }
 
         if (IsCollected || !IsGrabbed) return;
-        if (state == MineralExtractionState.DisplayOnly) return;
+        // if (state == MineralExtractionState.DisplayOnly) return;
 
-        // Left Controller Index Trigger to collect into inventory
+        // Left Controller Index Trigger to collect
         if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.LTouch))
         {
             CollectMineralInstance(OVRInput.Controller.LTouch);
@@ -417,7 +417,7 @@ public class MineralBehaviour : MonoBehaviour
             CollectionManager.TriggerMineralCollected(mineralData);
         }
 
-        // Hide mesh immediately upon collection (shrink animation removed)
+        // Hide mesh immediately upon collection
         if (meshRenderer != null)
         {
             meshRenderer.enabled = false;
